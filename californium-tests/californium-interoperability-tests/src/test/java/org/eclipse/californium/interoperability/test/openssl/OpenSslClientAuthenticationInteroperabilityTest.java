@@ -15,7 +15,7 @@
  ******************************************************************************/
 package org.eclipse.californium.interoperability.test.openssl;
 
-import static org.eclipse.californium.interoperability.test.OpenSslUtil.CLIENT_RSA_CERTIFICATE;
+import static org.eclipse.californium.interoperability.test.CredentialslUtil.CLIENT_RSA_CERTIFICATE;
 import static org.eclipse.californium.interoperability.test.ProcessUtil.TIMEOUT_MILLIS;
 import static org.eclipse.californium.interoperability.test.openssl.OpenSslProcessUtil.AuthenticationMode.CERTIFICATE;
 import static org.eclipse.californium.interoperability.test.openssl.OpenSslProcessUtil.AuthenticationMode.CHAIN;
@@ -37,7 +37,6 @@ import org.eclipse.californium.elements.rule.TestNameLoggerRule;
 import org.eclipse.californium.elements.util.Asn1DerDecoder;
 import org.eclipse.californium.elements.util.JceProviderUtil;
 import org.eclipse.californium.interoperability.test.ConnectorUtil;
-import org.eclipse.californium.interoperability.test.OpenSslUtil;
 import org.eclipse.californium.interoperability.test.ProcessUtil.ProcessResult;
 import org.eclipse.californium.interoperability.test.ScandiumUtil;
 import org.eclipse.californium.interoperability.test.ShutdownUtil;

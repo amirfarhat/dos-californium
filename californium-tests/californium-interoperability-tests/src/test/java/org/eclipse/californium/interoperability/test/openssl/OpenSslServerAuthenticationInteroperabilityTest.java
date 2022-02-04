@@ -15,9 +15,9 @@
  ******************************************************************************/
 package org.eclipse.californium.interoperability.test.openssl;
 
-import static org.eclipse.californium.interoperability.test.OpenSslUtil.SERVER_CERTIFICATE;
-import static org.eclipse.californium.interoperability.test.OpenSslUtil.SERVER_RSA_CERTIFICATE;
-import static org.eclipse.californium.interoperability.test.OpenSslUtil.SERVER_CA_RSA_CERTIFICATE;
+import static org.eclipse.californium.interoperability.test.CredentialslUtil.SERVER_CERTIFICATE;
+import static org.eclipse.californium.interoperability.test.CredentialslUtil.SERVER_RSA_CERTIFICATE;
+import static org.eclipse.californium.interoperability.test.CredentialslUtil.SERVER_CA_RSA_CERTIFICATE;
 import static org.eclipse.californium.interoperability.test.ProcessUtil.TIMEOUT_MILLIS;
 import static org.eclipse.californium.interoperability.test.openssl.OpenSslProcessUtil.AuthenticationMode.PSK;
 import static org.eclipse.californium.interoperability.test.openssl.OpenSslProcessUtil.AuthenticationMode.CERTIFICATE;
@@ -34,7 +34,6 @@ import java.net.InetSocketAddress;
 import org.eclipse.californium.elements.config.Configuration;
 import org.eclipse.californium.elements.rule.TestNameLoggerRule;
 import org.eclipse.californium.interoperability.test.ConnectorUtil;
-import org.eclipse.californium.interoperability.test.OpenSslUtil;
 import org.eclipse.californium.interoperability.test.ProcessUtil.ProcessResult;
 import org.eclipse.californium.interoperability.test.ScandiumUtil;
 import org.eclipse.californium.interoperability.test.ShutdownUtil;

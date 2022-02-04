@@ -13,7 +13,7 @@
  * Contributors:
  *    Achim Kraus (Bosch Software Innovations GmbH) - initial implementation.
  ******************************************************************************/
-package org.eclipse.californium.interoperability.test;
+package org.eclipse.californium.interoperability.test.openssl;
 
 import java.util.Arrays;
 import java.util.HashMap;
@@ -28,20 +28,6 @@ import org.eclipse.californium.scandium.dtls.cipher.CipherSuite;
  * Utility for openssl. Map of {@link CipherSuite} to openssl cipher suite name.
  */
 public class OpenSslUtil {
-
-	public static final String SERVER_CERTIFICATE = "server.pem";
-	public static final String SERVER_RSA_CERTIFICATE = "serverRsa.pem";
-	public static final String SERVER_CA_RSA_CERTIFICATE = "serverCaRsa.pem";
-
-	public static final String CLIENT_CERTIFICATE = "client.pem";
-	public static final String CLIENT_RSA_CERTIFICATE = "clientRsa.pem";
-	public static final String ROOT_CERTIFICATE = "rootTrustStore.pem";
-	public static final String CA_CERTIFICATES = "caTrustStore.pem";
-	public static final String CA_RSA_CERTIFICATES = "caRsaTrustStore.pem";
-	public static final String TRUSTSTORE = "trustStore.pem";
-
-	public static final String OPENSSL_PSK_IDENTITY = "Client_identity";
-	public static final byte[] OPENSSL_PSK_SECRET = "secretPSK".getBytes();
 
 	/**
 	 * Map of Californium's cipher suites to openssl names.
@@ -169,10 +155,10 @@ public class OpenSslUtil {
 	}
 
 	/**
-	 * Get ":" separated list of openssl signature and algorithm named.
+	 * Get ":" separated list of openssl signature and algorithm names.
 	 * 
-	 * @param jcaNamed JCA named. e.g. "SHA256withECDSA", "SHA256withRSA"
-	 * @return openssl name. e.g. "ECDSA+SHA256:RSA+SHA256"
+	 * @param jcaNames JCA names. e.g. "SHA256withECDSA", "SHA256withRSA"
+	 * @return openssl names. e.g. "ECDSA+SHA256:RSA+SHA256"
 	 * @throws IllegalArgumentException if one of the jcaNames does not contain
 	 *             a "with"
 	 * @since 2.3

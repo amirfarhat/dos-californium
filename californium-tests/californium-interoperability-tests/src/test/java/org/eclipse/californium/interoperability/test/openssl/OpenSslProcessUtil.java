@@ -15,12 +15,14 @@
  ******************************************************************************/
 package org.eclipse.californium.interoperability.test.openssl;
 
-import static org.eclipse.californium.interoperability.test.OpenSslUtil.CA_CERTIFICATES;
-import static org.eclipse.californium.interoperability.test.OpenSslUtil.CA_RSA_CERTIFICATES;
-import static org.eclipse.californium.interoperability.test.OpenSslUtil.CLIENT_CERTIFICATE;
-import static org.eclipse.californium.interoperability.test.OpenSslUtil.SERVER_CERTIFICATE;
-import static org.eclipse.californium.interoperability.test.OpenSslUtil.SERVER_CA_RSA_CERTIFICATE;
-import static org.eclipse.californium.interoperability.test.OpenSslUtil.TRUSTSTORE;
+import static org.eclipse.californium.interoperability.test.CredentialslUtil.CA_CERTIFICATES;
+import static org.eclipse.californium.interoperability.test.CredentialslUtil.CA_RSA_CERTIFICATES;
+import static org.eclipse.californium.interoperability.test.CredentialslUtil.CLIENT_CERTIFICATE;
+import static org.eclipse.californium.interoperability.test.CredentialslUtil.SERVER_CERTIFICATE;
+import static org.eclipse.californium.interoperability.test.CredentialslUtil.SERVER_CA_RSA_CERTIFICATE;
+import static org.eclipse.californium.interoperability.test.CredentialslUtil.TRUSTSTORE;
+import static org.eclipse.californium.interoperability.test.CredentialslUtil.OPENSSL_PSK_IDENTITY;
+import static org.eclipse.californium.interoperability.test.CredentialslUtil.OPENSSL_PSK_SECRET;
 import static org.junit.Assume.assumeFalse;
 import static org.junit.Assume.assumeTrue;
 
@@ -30,12 +32,11 @@ import java.util.Arrays;
 import java.util.List;
 
 import org.eclipse.californium.elements.util.StringUtil;
-import org.eclipse.californium.interoperability.test.OpenSslUtil;
 import org.eclipse.californium.interoperability.test.ProcessUtil;
 import org.eclipse.californium.scandium.dtls.cipher.CipherSuite;
 
 /**
- * Test for openssl interoperability.
+ * Test utility for openssl interoperability.
  * 
  * Requires external openssl installation, otherwise the tests are skipped. On
  * linux install just the openssl package (version 1.1.1). On windows you may
@@ -152,9 +153,9 @@ public class OpenSslProcessUtil extends ProcessUtil {
 				openSslCiphers));
 		if (CipherSuite.containsPskBasedCipherSuite(list)) {
 			args.add("-psk_identity");
-			args.add(OpenSslUtil.OPENSSL_PSK_IDENTITY);
+			args.add(OPENSSL_PSK_IDENTITY);
 			args.add("-psk");
-			args.add(StringUtil.byteArray2Hex(OpenSslUtil.OPENSSL_PSK_SECRET));
+			args.add(StringUtil.byteArray2Hex(OPENSSL_PSK_SECRET));
 		}
 		if (CipherSuite.containsCipherSuiteRequiringCertExchange(list)) {
 			args.add("-cert");
@@ -182,9 +183,9 @@ public class OpenSslProcessUtil extends ProcessUtil {
 		if (CipherSuite.containsPskBasedCipherSuite(list)) {
 			assumePskServerVersion();
 			args.add("-psk_identity");
-			args.add(OpenSslUtil.OPENSSL_PSK_IDENTITY);
+			args.add(OPENSSL_PSK_IDENTITY);
 			args.add("-psk");
-			args.add(StringUtil.byteArray2Hex(OpenSslUtil.OPENSSL_PSK_SECRET));
+			args.add(StringUtil.byteArray2Hex(OPENSSL_PSK_SECRET));
 		}
 		if (CipherSuite.containsCipherSuiteRequiringCertExchange(list)) {
 			args.add("-cert");

@@ -130,7 +130,8 @@ Starting with 3.0.0-RC1 a client receiving a x509 server-certificate verifies th
 Also Starting with 3.0.0-RC1, a server may use a `X509KeyManager` in order to provide multiple certificates to be selected by their algorithms and/or server name. For that, a Ed25519 and a RSA certificate has been added to the `demo-certs`.
 
 # Supported Features
-## Supported RFCs
+
+## Supported Cipher Suites
 
 [Supported Cipher Suites](src/main/java/org/eclipse/californium/scandium/dtls/cipher/CipherSuite.java):
 
@@ -143,13 +144,13 @@ Also Starting with 3.0.0-RC1, a server may use a `X509KeyManager` in order to pr
 - TLS_ECDHE_PSK_WITH_AES_128_CCM_8_SHA256
 - TLS_ECDHE_PSK_WITH_AES_128_CCM_SHA256
 - TLS_ECDHE_PSK_WITH_AES_128_GCM_SHA256
-- TLS_ECDHE_PSK_WITH_AES_256_GCM_SHA378
+- *TLS_ECDHE_PSK_WITH_AES_256_GCM_SHA378*
 - TLS_PSK_WITH_AES_128_CCM
 - TLS_PSK_WITH_AES_128_CCM_8
 - TLS_PSK_WITH_AES_128_GCM_SHA256
 - TLS_PSK_WITH_AES_256_CCM
 - TLS_PSK_WITH_AES_256_CCM_8
-- TLS_PSK_WITH_AES_256_GCM_SHA378
+- *TLS_PSK_WITH_AES_256_GCM_SHA378*
 - TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256
 - TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
 
@@ -158,11 +159,37 @@ Also Starting with 3.0.0-RC1, a server may use a `X509KeyManager` in order to pr
 - *TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA384*
 - *TLS_ECDHE_PSK_WITH_AES_128_CBC_SHA256*
 - *TLS_PSK_WITH_AES_128_CBC_SHA256*
-- *TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256
-- *TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA384
-- *TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA
+- *TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256*
+- *TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA384*
+- *TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA*
 
-Note: the *CBC* cipher suite are not longer recommended for new deployments!
+Note: the *CBC* cipher suites are not longer recommended for new deployments!
+
+Note: *SHA378* in the cipher suite names are typos. It must be *SHA384*. The straight forward fix would break the API, therefore the fix is postponed to 4.0 (no schedule for now)!
+
+## Supported Signature- and Hash-Algorithms
+
+- *SHA256_WITH_ECDSA*
+- *SHA256_WITH_RSA*
+- *ED25519* (if supported by JCE)
+- *ED448* (if supported by JCE)
+- *SHA1_WITH_ECDSA* (if explicitly enabled)
+- *SHA378_WITH_ECDSA* (if explicitly enabled)
+- *SHA512_WITH_ECDSA* (if explicitly enabled)
+
+## Supported Curves
+
+- *secp256r1*
+- *secp384r1*
+- *secp521r1*
+- *X25519* (if supported by JCE)
+- *X448* (if supported by JCE)
+
+(There are also some more, but their support depends on the JCE, see [SupportedGroup](src/main/java/org/eclipse/californium/scandium/dtls/cipher/XECDHECryptography.java#L351-L387)
+
+## Supported RFCs
+
+[RFC 6347 - Datagram Transport Layer Security Version 1.2](https://tools.ietf.org/html/rfc6347).
 
 Supported extensions:
 - [RFC 4279 - Pre-Shared Key](https://tools.ietf.org/html/rfc4279) simple and light authentication.
@@ -213,6 +240,8 @@ Starting with 3.0.0-RC1 an experimental support for using [Bouncy Castle](https:
 	</dependency>
 </dependencies>
 ```
+
+(With 3.3 the tests are using the updated version 1.70).
 
 And setup a environment variable `CALIFORNIUM_JCE_PROVIDER` using the value `BC` (see [JceProviderUtil](../element-connector/src/main/java/org/eclipse/californium/elements/util/JceProviderUtil.java) for more details) or use the java `System.property` `CALIFORNIUM_JCE_PROVIDER` to do so.
 

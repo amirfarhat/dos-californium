@@ -150,7 +150,7 @@ public class ConnectorUtil {
 	 * Build connector.
 	 * 
 	 * @param bind address to bind connector to
-	 * @param dtlsBuilder preconfigured dtls builder. Maybe {@link null}.
+	 * @param dtlsBuilder preconfigured dtls builder. Maybe {@code null}.
 	 * @param trust alias of trusted certificate, or {@code null} to trust all
 	 *            received certificates.
 	 * @param cipherSuites cipher suites to support.
@@ -169,7 +169,7 @@ public class ConnectorUtil {
 				.setConnectionIdGenerator(new SingleNodeConnectionIdGenerator(6));
 		if (CipherSuite.containsPskBasedCipherSuite(suites)) {
 			dtlsBuilder.setAdvancedPskStore(
-					new AdvancedSinglePskStore(OpenSslUtil.OPENSSL_PSK_IDENTITY, OpenSslUtil.OPENSSL_PSK_SECRET));
+					new AdvancedSinglePskStore(CredentialslUtil.OPENSSL_PSK_IDENTITY, CredentialslUtil.OPENSSL_PSK_SECRET));
 		}
 		if (CipherSuite.containsCipherSuiteRequiringCertExchange(suites)) {
 			if (credentials != null && dtlsBuilder.getIncompleteConfig().getCertificateIdentityProvider() == null) {

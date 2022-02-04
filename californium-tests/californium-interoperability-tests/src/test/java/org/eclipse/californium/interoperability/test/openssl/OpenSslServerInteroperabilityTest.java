@@ -15,10 +15,11 @@
  ******************************************************************************/
 package org.eclipse.californium.interoperability.test.openssl;
 
-import static org.eclipse.californium.interoperability.test.OpenSslUtil.SERVER_CERTIFICATE;
-import static org.eclipse.californium.interoperability.test.OpenSslUtil.SERVER_RSA_CERTIFICATE;
+import static org.eclipse.californium.interoperability.test.CredentialslUtil.SERVER_CERTIFICATE;
+import static org.eclipse.californium.interoperability.test.CredentialslUtil.SERVER_RSA_CERTIFICATE;
 import static org.eclipse.californium.interoperability.test.ProcessUtil.TIMEOUT_MILLIS;
 import static org.eclipse.californium.interoperability.test.openssl.OpenSslProcessUtil.AuthenticationMode.CERTIFICATE;
+import static org.junit.Assert.assertTrue;
 import static org.junit.Assume.assumeNotNull;
 import static org.junit.Assume.assumeTrue;
 
@@ -28,7 +29,6 @@ import java.net.InetSocketAddress;
 
 import org.eclipse.californium.elements.config.Configuration;
 import org.eclipse.californium.elements.rule.TestNameLoggerRule;
-import org.eclipse.californium.interoperability.test.OpenSslUtil;
 import org.eclipse.californium.interoperability.test.ProcessUtil.ProcessResult;
 import org.eclipse.californium.interoperability.test.ScandiumUtil;
 import org.eclipse.californium.interoperability.test.ShutdownUtil;
@@ -121,8 +121,8 @@ public class OpenSslServerInteroperabilityTest {
 		String message = "Hello OpenSSL!";
 		scandiumUtil.send(message, DESTINATION, TIMEOUT_MILLIS);
 
-		processUtil.waitConsole("CIPHER is " + cipher, TIMEOUT_MILLIS);
-		processUtil.waitConsole(message, TIMEOUT_MILLIS);
+		assertTrue(processUtil.waitConsole("CIPHER is " + cipher, TIMEOUT_MILLIS));
+		assertTrue(processUtil.waitConsole(message, TIMEOUT_MILLIS));
 		processUtil.send("ACK-" + message);
 
 		scandiumUtil.assertReceivedData("ACK-" + message, TIMEOUT_MILLIS);
@@ -146,8 +146,8 @@ public class OpenSslServerInteroperabilityTest {
 		String message = "Hello OpenSSL!";
 		scandiumUtil.send(message, DESTINATION, TIMEOUT_MILLIS);
 
-		processUtil.waitConsole("CIPHER is " + cipher, TIMEOUT_MILLIS);
-		processUtil.waitConsole(message, TIMEOUT_MILLIS);
+		assertTrue(processUtil.waitConsole("CIPHER is " + cipher, TIMEOUT_MILLIS));
+		assertTrue(processUtil.waitConsole(message, TIMEOUT_MILLIS));
 		processUtil.send("ACK-" + message);
 
 		scandiumUtil.assertReceivedData("ACK-" + message, TIMEOUT_MILLIS);
