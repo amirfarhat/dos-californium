@@ -20,6 +20,9 @@ import java.security.GeneralSecurityException;
 import java.util.Arrays;
 
 import org.eclipse.californium.elements.exception.ConnectorException;
+import org.eclipse.californium.examples.basic.BasicForwardingProxy2;
+import org.eclipse.californium.examples.dos.DoSOptimizedForwardingProxy;
+import org.eclipse.californium.examples.dos.DoSSynchronousCoapClient;
 
 /**
  * Main starter class for jar execution.
@@ -33,6 +36,10 @@ public class Proxy2 {
 	private static final String COAP_SERVER = ExampleCoapServer.class.getSimpleName();
 	private static final String HTTP_SERVER = ExampleHttpServer.class.getSimpleName();
 	private static final String SECURE_COAP_CLIENT = ExampleSecureProxy2CoapClient.class.getSimpleName();
+
+	private static final String BASIC_FORWARDING_PROXY = BasicForwardingProxy2.class.getSimpleName();
+	private static final String DOS_FORWARDING_PROXY = DoSOptimizedForwardingProxy.class.getSimpleName();
+	private static final String DOS_SYNC_PROXY_COAP_CLIENT = DoSSynchronousCoapClient.class.getSimpleName();
 
 	public static void main(String[] args)
 			throws IOException, ConnectorException, InterruptedException, GeneralSecurityException {
@@ -60,6 +67,15 @@ public class Proxy2 {
 			} else if (HTTP_SERVER.equals(start)) {
 				ExampleHttpServer.main(args2);
 				return;
+			} else if (BASIC_FORWARDING_PROXY.equals(start)) {
+				BasicForwardingProxy2.main(args2);
+				return;
+			} else if (DOS_FORWARDING_PROXY.equals(start)) {
+				DoSOptimizedForwardingProxy.main(args2);
+				return;
+			} else if (DOS_SYNC_PROXY_COAP_CLIENT.equals(start)) {
+				DoSSynchronousCoapClient.main(args2);
+				return;
 			}
 		}
 		System.out.println("\nCalifornium (Cf) Proxy2-Starter");
@@ -67,7 +83,7 @@ public class Proxy2 {
 		System.out.println();
 		System.out.println(
 				"Usage: " + Proxy2.class.getSimpleName() + " (" + CROSS_PROXY + "|" + SECURE_PROXY + "|" + COAP_CLIENT
-						+ "|" + SECURE_COAP_CLIENT + "|" + HTTP_CLIENT + "|" + COAP_SERVER + "|" + HTTP_SERVER + ")");
+						+ "|" + SECURE_COAP_CLIENT + "|" + HTTP_CLIENT + "|" + COAP_SERVER + "|" + HTTP_SERVER + "|" + BASIC_FORWARDING_PROXY + "|" + DOS_FORWARDING_PROXY + "|" + DOS_SYNC_PROXY_COAP_CLIENT + ")");
 		if (start != null) {
 			System.out.println("   '" + start + "' is not supported!");
 		}
