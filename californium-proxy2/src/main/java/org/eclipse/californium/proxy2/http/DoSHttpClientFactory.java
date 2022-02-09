@@ -1,15 +1,8 @@
 package org.eclipse.californium.proxy2.http;
 
-import java.io.IOException;
-import java.io.InterruptedIOException;
-import java.net.ConnectException;
-import java.net.UnknownHostException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
-import javax.net.ssl.SSLException;
-
-import org.apache.hc.client5.http.ConnectTimeoutException;
 import org.apache.hc.client5.http.config.RequestConfig;
 import org.apache.hc.client5.http.impl.DefaultConnectionKeepAliveStrategy;
 import org.apache.hc.client5.http.impl.DefaultHttpRequestRetryStrategy;
@@ -17,7 +10,6 @@ import org.apache.hc.client5.http.impl.async.CloseableHttpAsyncClient;
 import org.apache.hc.client5.http.impl.async.HttpAsyncClientBuilder;
 import org.apache.hc.client5.http.impl.nio.PoolingAsyncClientConnectionManager;
 import org.apache.hc.client5.http.impl.nio.PoolingAsyncClientConnectionManagerBuilder;
-import org.apache.hc.core5.http.ConnectionClosedException;
 import org.apache.hc.core5.http.ConnectionReuseStrategy;
 import org.apache.hc.core5.http.HttpRequest;
 import org.apache.hc.core5.http.HttpResponse;
@@ -67,12 +59,7 @@ public class DoSHttpClientFactory {
 	 * @since 3.0 (changed return type to Configuration)
 	 */
 	public static Configuration getNetworkConfig() {
-		Configuration config = DoSHttpClientFactory.config.get();
-		if (config == null) {
-			DoSHttpClientFactory.config.compareAndSet(null, Configuration.getStandard());
-			config = DoSHttpClientFactory.config.get();
-		}
-		return config;
+		return DoSHttpClientFactory.config.get();
 	}
 
   /**
@@ -122,48 +109,22 @@ public class DoSHttpClientFactory {
       .setKeepAliveStrategy(new DefaultConnectionKeepAliveStrategy() {
         @Override
         public TimeValue getKeepAliveDuration(HttpResponse response, HttpContext context) {
+          // In the case where the response from the recipient contains a keep-alive field,
+          // we want to use that value
           TimeValue keepAlive = super.getKeepAliveDuration(response, context);
+          
           if (keepAlive == null || keepAlive.getDuration() < 0) {
-            // Keep connections alive if a keep-alive value
-            // has not be explicitly set by the server
+            // But in the case where a keep-alive is not specified, we set our own
             keepAlive = keepAliveDuration;
           }
+          
           return keepAlive;
         }
       })
 
       // Retry strategy
-      .setRetryStrategy(new DefaultHttpRequestRetryStrategy() {
-        private boolean checkRetry(int execCount) {
-          return execCount <= maxRequestRetries;
-        }
-        private boolean checkRetry(IOException exception, int execCount) {
-          // Want to retry on certain exceptions for fixed number of retries
-          final boolean exceptionIsSupported = (exception instanceof ConnectTimeoutException)
-                                              || (exception instanceof InterruptedIOException)
-                                              || (exception instanceof UnknownHostException)
-                                              || (exception instanceof ConnectException)
-                                              || (exception instanceof ConnectionClosedException)
-                                              || (exception instanceof SSLException);
-          final boolean canStillRetry = checkRetry(execCount);
-          return exceptionIsSupported && canStillRetry;
-        }
+      .setRetryStrategy(new DefaultHttpRequestRetryStrategy(maxRequestRetries, requestRetryInterval))
 
-        @Override
-        public TimeValue getRetryInterval(HttpResponse response, int execCount, HttpContext context) {
-          return requestRetryInterval;
-        }
-
-        @Override
-        public boolean retryRequest(HttpResponse response, int execCount, HttpContext context) {
-          return checkRetry(execCount);
-        }
-
-        @Override
-        public boolean retryRequest(HttpRequest request, IOException exception, int execCount, HttpContext context) {
-          return checkRetry(exception, execCount);
-        }
-      })
       .build();
 
 		client.start();
@@ -180,16 +141,15 @@ public class DoSHttpClientFactory {
 	private static RequestConfig createCustomRequestConfig(Configuration config) {
 		// Source: https://hc.apache.org/httpcomponents-client-5.1.x/current/httpclient5/apidocs/org/apache/hc/client5/http/config/RequestConfig.Builder.html
 
-    final TimeValue keepAliveDuration = TimeValue.ofSeconds(config.get(DoSConfig.KEEP_ALIVE_DURATION, TimeUnit.SECONDS));
+    final long keepAliveDurationSec = config.get(DoSConfig.KEEP_ALIVE_DURATION, TimeUnit.SECONDS);
+    final TimeValue keepAliveDuration = TimeValue.ofSeconds(keepAliveDurationSec);
     final long requestTimeoutSec = config.get(DoSConfig.REQUEST_TIMEOUT, TimeUnit.SECONDS);
-
-    final long connectTimeoutMillis = config.get(Proxy2Config.HTTP_CONNECT_TIMEOUT, TimeUnit.MILLISECONDS);
 
 		return RequestConfig
       .custom()
       .setConnectionKeepAlive(keepAliveDuration)
       .setConnectionRequestTimeout(Timeout.ofSeconds(requestTimeoutSec))
-      .setConnectTimeout(Timeout.ofMilliseconds(connectTimeoutMillis))
+      .setConnectTimeout(Timeout.ofSeconds(keepAliveDurationSec))
       .build();
 	}
 
@@ -236,10 +196,10 @@ public class DoSHttpClientFactory {
 		//		setTcpNoDelay(boolean tcpNoDelay)
 		//		setTrafficClass(int trafficClass)
 
-    final long connectionIdleSecs = config.get(Proxy2Config.HTTP_CONNECTION_IDLE_TIMEOUT, TimeUnit.SECONDS);
+    final long keepAliveDurationSec = config.get(DoSConfig.KEEP_ALIVE_DURATION, TimeUnit.SECONDS);
 		return IOReactorConfig
 						.custom()
-						.setSoTimeout(Timeout.ofSeconds(connectionIdleSecs))
+						.setSoTimeout(Timeout.ofSeconds(keepAliveDurationSec))
 						.build();
 	}
 } 
