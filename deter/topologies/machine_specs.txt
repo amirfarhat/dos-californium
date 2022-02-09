@@ -1,0 +1,55 @@
+[bpc2800]
+  berkeley
+  dual core processor running at 2.8 GHz
+  2 GB of RAM
+
+[(b)pc3000]
+  berkeley / isi
+  dual 3Ghz Intel Xeon processors
+  2 GB of RAM
+
+[(b)pc3060]
+  berkeley / isi
+  dual 3Ghz Intel Xeon processors
+  2 GB of RAM
+
+[bvx2200]
+  berkeley
+  dual Core AMD Opteron processor running at 2.8 GHz
+    with 2MB of cache 
+  4 GB of RAM
+
+[(b)pc2133]
+  berkeley / isi
+  one Intel(R) Xeon(R) CPU X3210 quad core processor running at 2.13 Ghz
+  4 GB of RAM
+
+[MicroCloud]
+  isi
+  one Intel(R) Xeon(R) E3-1260L quad-core processor running at 2.4 Ghz
+    with Intel VT-x and VT-d support
+  16GB of RAM
+
+[dl380g3]
+  isi
+  Dual Intel(R) Xeon(R) hexa-core processors running at 2.2 Ghz 
+    with 15MB cache & Intel VT-x support
+  24 (intf says 16) GB of RAM
+
+[dl360g8-6p]
+  isi
+  Intel(R) Xeon(R) hexa-core processors running at 2.2 Ghz 
+    with 15MB cache
+  24 (intf says 16) GB of RAM
+
+[smX10]
+  isi
+  One Xeon E5-2650 octa-core processor running at 2.6 Ghz
+    with 20MB cache
+  64 GB of RAM
+
+[sm]
+  isi
+  Two Xeon E5-2650 octa-core processors running at 2.6 Ghz
+    with 20MB cache
+  64 GB of RAM
