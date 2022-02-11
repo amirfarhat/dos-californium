@@ -32,8 +32,6 @@ function log () {
 # Start internal IP discovery service
 bash $SCRIPTS_HOME/storeips.sh
 
-exit 1
-
 printf "Using hosts: %s\n" "${HOST_NAMES[@]}"
 printf "Using clients: %s\n" "${CLIENTS[@]}"
 
@@ -41,7 +39,7 @@ log "[CHECKPOINT] Starting experiment $_EXP_NAME\n"
 log "[CHECKPOINT] Running $_N trials\n"
 
 # Create experiment's data directory
-experiment_dir=$DETER_HOME/expdata/real/proxy/$_EXP_NAME
+experiment_dir=$EXPDATA_HOME/$_EXP_NAME
 mkdir -p $experiment_dir
 log "[CHECKPOINT] Created experiment directory $experiment_dir\n"
 

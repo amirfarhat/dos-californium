@@ -28,7 +28,7 @@ exp_dir="$DATA_DIR/$proper_experiment_name"
 # Scp experiment data if not there already
 if [[ ! -d $exp_dir ]]; then
   echo "${zipped_experiment_name%$ZIP_SUFFIX} not found. Fetching files..."
-  REMOTE_EXP_DIR="/proj/MIT-DoS/exp/coap-setup/deps/dos-californium/deter/expdata/real/proxy"
+  REMOTE_EXP_DIR="/proj/MIT-DoS/exp/coap-setup/deps/dos-californium/deter/expdata"
   scp -r amirf@users.deterlab.net:$REMOTE_EXP_DIR/$zipped_experiment_name $DATA_DIR
 fi
 
