@@ -30,6 +30,10 @@ demo-apps/run/cf-simplefile-server-3.2.0.jar
 # But we do want to push the proxy's JAR
 # demo-apps/run/cf-proxy2-3.2.0.jar
 
+# Deter #
+#########
+deter/expdata/*
+
 # Run #
 #######
 run/*

@@ -2,8 +2,8 @@
 
 source /proj/MIT-DoS/exp/coap-setup/deps/dos-californium/deter/scripts/config.sh
 
-PROXY_IP=`bash $DETER_HOME/fetchips.sh proxy`
-ORIGIN_SERVER_IP=`bash $DETER_HOME/fetchips.sh proxy originserver`
+PROXY_IP=`bash $IPS_HOME/fetchips.sh proxy`
+ORIGIN_SERVER_IP=`bash $IPS_HOME/fetchips.sh proxy originserver`
 
 # Make sure there are no java procs running
 while [[ ! -z `pgrep java` ]]; do

@@ -28,8 +28,5 @@ else
   usage
 fi
 
-ips_dir="$DETER_HOME/ips"
-ipsfile="$ips_dir/ips.txt"
-
 cd $DETER_HOME
-python fetchips_helper.py --src $src --dst $dst --ipsfile $ipsfile
+python fetchips_helper.py --src $src --dst $dst --ipsfile $IPS_FILE

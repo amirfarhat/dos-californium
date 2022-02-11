@@ -4,20 +4,23 @@ host_name=$(hostname | awk '{print tolower($0)}')
 
 # Decide where home is, based on the current device host name
 if [[ $host_name == *"deter"* ]]; then
-  CF_HOME=/proj/MIT-DoS/exp/coap-setup/deps/dos-californium
+  CF_HOME="/proj/MIT-DoS/exp/coap-setup/deps/dos-californium"
 elif [[ $host_name == *"amir"* ]]; then
-  CF_HOME=/Users/amirfarhat/workplace/research/dos-californium
+  CF_HOME="/Users/amirfarhat/workplace/research/dos-californium"
 else
-  CF_HOME=~/dos-californium
+  CF_HOME="~/dos-californium"
 fi
 
 # Home directories
-DETER_HOME=$CF_HOME/deter
-SCRIPTS_HOME=$DETER_HOME/scripts
-BIN_HOME=$SCRIPTS_HOME/sbin
-UTILS_HOME=$DETER_HOME/utils
-TMP=/tmp
-TMP_DATA=/tmp/data
+DETER_HOME="$CF_HOME/deter"
+IPS_HOME="$DETER_HOME/ips"
+IPS_TOPO="$IPS_HOME/topo.ns"
+IPS_FILE="$IPS_HOME/ips.txt"
+SCRIPTS_HOME="$DETER_HOME/scripts"
+BIN_HOME="$SCRIPTS_HOME/sbin"
+UTILS_HOME="$DETER_HOME/utils"
+TMP="/tmp"
+TMP_DATA="$TMP/data"
 
 RUN_USER="amirf"
 

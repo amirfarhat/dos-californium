@@ -5,15 +5,15 @@ source /proj/MIT-DoS/exp/coap-setup/deps/californium/deter/scripts/config.sh
 rm -f $TMP_DATA/$ATTACKER_LOGNAME
 touch $TMP_DATA/$ATTACKER_LOGNAME
 
-PROXY_IP=`bash $DETER_HOME/fetchips.sh proxy`
-ATTACKER_SPOOFED_IP=`bash $DETER_HOME/fetchips.sh proxy receiver`
-ORIGIN_SERVER_IP=`bash $DETER_HOME/fetchips.sh proxy originserver`
+PROXY_IP=`bash $IPS_HOME/fetchips.sh proxy`
+ATTACKER_SPOOFED_IP=`bash $IPS_HOME/fetchips.sh proxy receiver`
+ORIGIN_SERVER_IP=`bash $IPS_HOME/fetchips.sh proxy originserver`
 
 # Delay the start of the attacker
 sleep $ATTACKER_START_LAG_DURATION
 
 # Then start the attacker in background
-(python3 $DETER_HOME/coapspoofer.py \
+(python3 $SCRIPTS_HOME/coapspoofer.py \
   --debug \
   --source $ATTACKER_SPOOFED_IP \
   --src-port $ATTACKER_SPOOFED_PORT \
