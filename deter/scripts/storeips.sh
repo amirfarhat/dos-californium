@@ -11,4 +11,4 @@ rm $IPS_HOME/*
 
 # Prepare output file of ips
 touch $IPS_FILE
-python storeips_helper.py -i $IPS_TOPO -o $IPS_FILE
+python $SCRIPTS_HOME/storeips_helper.py -i $IPS_TOPO -o $IPS_FILE

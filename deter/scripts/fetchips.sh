@@ -29,4 +29,4 @@ else
 fi
 
 cd $DETER_HOME
-python fetchips_helper.py --src $src --dst $dst --ipsfile $IPS_FILE
+python $SCRIPTS_HOME/fetchips_helper.py --src $src --dst $dst --ipsfile $IPS_FILE
