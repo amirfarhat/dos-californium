@@ -23,6 +23,7 @@ EXPDATA_HOME="$DETER_HOME/expdata"
 UTILS_HOME="$DETER_HOME/utils"
 TMP="/tmp"
 TMP_DATA="$TMP/data"
+CF_PROXY_JAR="$CF_HOME/demo-apps/run/cf-proxy2-3.2.0.jar"
 
 RUN_USER="amirf"
 
@@ -45,10 +46,10 @@ PROXY_CONNECTIONS=90
 PROXY_REQUEST_TIMEOUT_MS=5000
 PROXY_POOLING_STRATEGY="all"
 PROXY_RETRY_STRATEGY="2"
+PROXY_HEAP_SIZE_MB="8000"
 NUM_CLIENT_MESSAGES=100000000
 NUM_CLIENTS=1
 PROFILING_EVENT="cpu"
-PROXY_HEAP_SIZE_MB="8000"
 # Note these are not configurable from here -- go to the apache server's configuration
 SERVER_CONNECTIONS=256
 MAX_KEEP_ALIVE_REQUESTS=0 # 0 means infinite requests per connection. Anything larger terminates the connection when reaching that many requests

@@ -22,13 +22,12 @@ OPLOG=$TMP_DATA/proxy_ops.log
 sudo touch $OPLOG
 
 log "Preparing proxy configuration..."
-$BIN_HOME/prepare_proxy_configuration.sh
+bash $BIN_HOME/prepare_proxy_configuration.sh
 log "Done!"
 
 if [[ $TCPDUMP -eq 1 ]]; then
   log "Running proxy tcpdump...\n"
   sudo screen -c $UTILS_HOME/oplog.conf -d -m -L sudo $BIN_HOME/run_tcpdump.sh proxy
-
 fi
 
 if [[ $MONITOR_PROXY_CPU -eq 1 ]]; then

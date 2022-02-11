@@ -32,7 +32,7 @@ if [[ $DO_JAVA_PROFILING -eq 1 ]]; then
 fi
 
 # Run the proxy with proxy log
-((sudo java $proxy_args -jar $CF_HOME/demo-apps/run/cf-proxy2-3.0.0-SNAPSHOT.jar BasicForwardingProxy2 $proxy_logging $PROXY_CONNECTIONS) 2>&1 > $TMP_DATA/$PROXY_LOGNAME) &
+((sudo java $proxy_args -jar $CF_PROXY_JAR DoSOptimizedForwardingProxy) 2>&1 > $TMP_DATA/$PROXY_LOGNAME) &
 
 # Wait until proxy pid shows up
 # TODO temp variable while this until file shows up lsof -p PID | grep java_pid
@@ -68,7 +68,6 @@ if [[ $DO_JAVA_PROFILING -eq 1 ]]; then
   echo "Stopping profiling..."
   sudo ./profiler.sh stop -f $TMP_DATA/$FLAMEGRAPH_NAME --width 1500 --title $PROFILING_EVENT $proxy_pid
   cd ~
-
   # TODO Add else with defaults of the kernel params
 fi
 
