@@ -1,0 +1,28 @@
+set ns [new Simulator]
+source tb_compat.tcl
+
+tb-make-soft-vtype weak_hardware {pc2133 pc3060 pc3100 pc2133n}
+tb-make-soft-vtype good_hardware {dl380g3}
+
+set proxy [$ns node]
+tb-set-node-os $proxy Ubuntu1804-STD
+tb-set-hardware $proxy weak_hardware
+tb-set-node-startcmd $proxy "bash /proj/MIT-DoS/exp/coap-setup/deps/californium/deter/scripts/node_setup.sh"
+
+set attacker [$ns node]
+tb-set-node-os $attacker Ubuntu1804-STD
+tb-set-hardware $attacker good_hardware
+tb-set-node-startcmd $attacker "bash /proj/MIT-DoS/exp/coap-setup/deps/californium/deter/scripts/node_setup.sh"
+
+set originserver [$ns node]
+tb-set-node-os $originserver Ubuntu1804-STD
+tb-set-hardware $originserver good_hardware
+tb-set-node-startcmd $originserver "bash /proj/MIT-DoS/exp/coap-setup/deps/californium/deter/scripts/node_setup.sh"
+
+$ns duplex-link $attacker $proxy     100Mbps 0ms DropTail
+$ns duplex-link $proxy $originserver 1000Mbps 0ms DropTail
+
+tb-use-endnodeshaping 1
+
+$ns rtproto Static
+$ns run

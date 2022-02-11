@@ -1,0 +1,78 @@
+set ns [new Simulator]
+source tb_compat.tcl
+
+# Groups of hardware and location type
+
+tb-make-soft-vtype ucb_good_or_better_hardware {bpc2133}
+tb-make-soft-vtype ucb_any_hardware {bpc2133 bpc2800 bpc3000 bpc3060 bvx2200}
+
+tb-make-soft-vtype isi_fantastic_or_better_hardware {dl380g3 dl360g8-6p smX10 sm}
+tb-make-soft-vtype isi_great_or_better_hardware {MicroCloud dl380g3 dl360g8-6p smX10 sm}
+tb-make-soft-vtype isi_good_or_better_hardware {pc2133 MicroCloud dl380g3 dl360g8-6p smX10 sm}
+tb-make-soft-vtype isi_any_hardware {pc3000 pc3060 pc2133 MicroCloud dl380g3 dl360g8-6p smX10 sm}
+
+tb-make-soft-vtype e_fantastic_or_better_hardware {dl380g3 dl360g8-6p smX10 sm}
+tb-make-soft-vtype e_great_or_better_hardware {MicroCloud dl380g3 dl360g8-6p smX10 sm}
+tb-make-soft-vtype e_good_or_better_hardware {bpc2133 pc2133 MicroCloud dl380g3 dl360g8-6p smX10 sm}
+tb-make-soft-vtype e_any_hardware {bpc2800 bpc3000 bpc3060 bvx2200 pc3000 pc3060 bpc2133 pc2133 MicroCloud dl380g3 dl360g8-6p smX10 sm}
+
+set proxy [$ns node]
+tb-set-node-os $proxy Ubuntu1804-STD
+tb-set-hardware $proxy MicroCloud
+tb-set-node-startcmd $proxy "bash /proj/MIT-DoS/exp/coap-setup/deps/dos-californium/deter/scripts/node_setup.sh"
+
+set originserver [$ns node]
+tb-set-node-os $originserver Ubuntu1804-STD
+tb-set-hardware $originserver MicroCloud
+tb-set-node-startcmd $originserver "bash /proj/MIT-DoS/exp/coap-setup/deps/dos-californium/deter/scripts/node_setup.sh"
+
+set client1 [$ns node]
+tb-set-node-os $client1 Ubuntu1804-STD
+tb-set-hardware $client1 isi_any_hardware
+tb-set-node-startcmd $client1 "bash /proj/MIT-DoS/exp/coap-setup/deps/dos-californium/deter/scripts/node_setup.sh"
+
+set attacker [$ns node]
+tb-set-node-os $attacker Ubuntu1804-STD
+tb-set-hardware $attacker isi_any_hardware
+tb-set-node-startcmd $attacker "bash /proj/MIT-DoS/exp/coap-setup/deps/dos-californium/deter/scripts/node_setup.sh"
+
+set receiver [$ns node]
+tb-set-node-os $receiver Ubuntu1804-STD
+tb-set-hardware $receiver isi_any_hardware
+tb-set-node-startcmd $receiver "bash /proj/MIT-DoS/exp/coap-setup/deps/dos-californium/deter/scripts/node_setup.sh"
+
+
+# Routers
+set routerhome [$ns node]
+set routerinternet [$ns node]
+tb-set-hardware $routerhome isi_any_hardware
+tb-set-hardware $routerinternet isi_any_hardware
+tb-set-node-os $routerhome Ubuntu1804-STD
+tb-set-node-os $routerinternet Ubuntu1804-STD
+
+# Link Bandwidths
+set attackrate 100Mbps
+set internetlink 1000Mbps
+
+# LANs
+set lanhome [$ns make-lan "routerhome client1 proxy" 100Mbps 0ms]
+
+# Links
+set linkinternet [$ns duplex-link routerhome routerinternet $internetlink 80ms DropTail]
+set linkattacker [$ns duplex-link routerhome attacker $attackrate 0ms DropTail]
+set linkserver [$ns duplex-link routerinternet originserver $internetlink 20ms DropTail]
+set linkreceiver [$ns duplex-link routerinternet receiver $internetlink 20ms DropTail]
+
+# IP Address Assignments
+# Note that if client and proxy are in the same LAN, they need to have
+# the same IP address prefix
+tb-set-ip $originserver 10.1.1.1
+tb-set-ip $receiver 10.1.2.1
+tb-set-ip $attacker 10.1.3.1
+tb-set-ip $proxy 10.1.5.99
+tb-set-ip $client1 10.1.5.1
+
+tb-use-endnodeshaping 1
+tb-force-endnodeshaping 1
+$ns rtproto Static
+$ns run

@@ -1,0 +1,48 @@
+set ns [new Simulator]
+source tb_compat.tcl
+
+tb-make-soft-vtype weak_hardware  {bpc2800 bpc3000 bpc3060 bvx2200 pc3000 pc3060}
+tb-make-soft-vtype good_hardware  {bpc2133 pc2133}
+tb-make-soft-vtype great_hardware {MicroCloud}
+tb-make-soft-vtype super_hardware {dl360g8-6p dl380g3}
+tb-make-soft-vtype crazy_hardware {smX10 sm}
+
+tb-make-soft-vtype great_super_crazy_hardware {MicroCloud dl360g8-6p dl380g3 smX10 sm}
+tb-make-soft-vtype dp_hardware {dl380g3 dl360g8-6p sm}
+
+tb-make-soft-vtype any_hardware {bpc2800 bpc3000 bpc3060 bvx2200 pc3000 pc3060 bpc2133 pc2133 MicroCloud dl360g8-6p dl380g3 smX10 sm}
+
+set client [$ns node]
+tb-set-node-os $client Ubuntu1804-STD
+tb-set-hardware $client any_hardware
+tb-set-node-startcmd $client "bash /proj/MIT-DoS/exp/coap-setup/deps/californium/deter/scripts/node_setup.sh"
+
+set proxy [$ns node]
+tb-set-node-os $proxy Ubuntu1804-STD
+tb-set-hardware $proxy great_hardware
+tb-set-node-startcmd $proxy "bash /proj/MIT-DoS/exp/coap-setup/deps/californium/deter/scripts/node_setup.sh"
+
+set attacker [$ns node]
+tb-set-node-os $attacker Ubuntu1804-STD
+tb-set-hardware $attacker good_hardware
+tb-set-node-startcmd $attacker "bash /proj/MIT-DoS/exp/coap-setup/deps/californium/deter/scripts/node_setup.sh"
+
+set originserver [$ns node]
+tb-set-node-os $originserver Ubuntu1804-STD
+tb-set-hardware $originserver good_hardware
+tb-set-node-startcmd $originserver "bash /proj/MIT-DoS/exp/coap-setup/deps/californium/deter/scripts/node_setup.sh"
+
+set receiver [$ns node]
+tb-set-node-os $receiver Ubuntu1804-STD
+tb-set-hardware $receiver any_hardware
+tb-set-node-startcmd $receiver "bash /proj/MIT-DoS/exp/coap-setup/deps/californium/deter/scripts/node_setup.sh"
+
+set Link-1 [$ns duplex-link client   proxy        1000Mbps 0ms DropTail]
+set Link-2 [$ns duplex-link attacker proxy        10Mbps   0ms DropTail]
+set Link-3 [$ns duplex-link proxy    originserver 1000Mbps 0ms DropTail]
+set Link-4 [$ns duplex-link proxy    receiver     1000Mbps 0ms DropTail]
+
+tb-use-endnodeshaping 1
+
+$ns rtproto Static
+$ns run

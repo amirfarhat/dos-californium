@@ -1,6 +1,5 @@
 storage/
 bin/
-run/
 test_out/
 tmp/
 doc/
@@ -13,6 +12,31 @@ doc/
 *.tmp
 *~.nib
 local.properties
+
+# Demo Apps #
+#############
+demo-apps/run/cf-benchmark-3.2.0.jar
+demo-apps/run/cf-helloworld-server-3.2.0.jar
+demo-apps/run/cf-unix-setup-3.2.0.jar
+demo-apps/run/cf-benchmark-observe-3.2.0.jar
+demo-apps/run/cf-plugtest-server-3.2.0.jar
+demo-apps/run/sc-dtls-example-client-3.2.0.jar
+demo-apps/run/cf-cocoa-3.2.0.jar
+demo-apps/run/sc-dtls-example-server-3.2.0.jar
+demo-apps/run/cf-extplugtest-server-3.2.0.jar
+demo-apps/run/cf-secure-3.2.0.jar
+demo-apps/run/cf-helloworld-client-3.2.0.jar
+demo-apps/run/cf-simplefile-server-3.2.0.jar
+# But we do want to push the proxy's JAR
+# demo-apps/run/cf-proxy2-3.2.0.jar
+
+# Deter #
+#########
+deter/expdata/*
+
+# Run #
+#######
+run/*
 
 # Android #
 ###########
@@ -58,7 +82,6 @@ target/
 *.dmg
 *.gz
 *.iso
-*.jar
 *.rar
 *.tar
 *.zip
