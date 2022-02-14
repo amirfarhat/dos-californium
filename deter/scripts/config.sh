@@ -8,7 +8,7 @@ if [[ $host_name == *"deter"* ]]; then
 elif [[ $host_name == *"amir"* ]]; then
   CF_HOME="/Users/amirfarhat/workplace/research/dos-californium"
 else
-  CF_HOME="~/dos-californium"
+  CF_HOME="/home/ubuntu/dos-californium"
 fi
 
 # Home directories
@@ -23,7 +23,11 @@ EXPDATA_HOME="$DETER_HOME/expdata"
 UTILS_HOME="$DETER_HOME/utils"
 TMP="/tmp"
 TMP_DATA="$TMP/data"
+
+# Locations of specific files
 CF_PROXY_JAR="$CF_HOME/demo-apps/run/cf-proxy2-3.2.0.jar"
+PROPERTIES_FILE_NAME="DoSProxy.properties"
+PROPERTIES_FILE="$UTILS_HOME/$PROPERTIES_FILE_NAME"
 
 RUN_USER="amirf"
 
@@ -40,16 +44,12 @@ RUN_CLIENTS=1
 
 TOPOLOGY_NAME="newrealA"
 
-# Tunable parameters
+# General tunable parameters
 CPU_SAMPLING_INTERVAL=1
-PROXY_CONNECTIONS=90
-PROXY_REQUEST_TIMEOUT_MS=5000
-PROXY_POOLING_STRATEGY="all"
-PROXY_RETRY_STRATEGY="2"
-PROXY_HEAP_SIZE_MB="8000"
 NUM_CLIENT_MESSAGES=100000000
 NUM_CLIENTS=1
 PROFILING_EVENT="cpu"
+PROXY_HEAP_SIZE_MB="8000"
 # Note these are not configurable from here -- go to the apache server's configuration
 SERVER_CONNECTIONS=256
 MAX_KEEP_ALIVE_REQUESTS=0 # 0 means infinite requests per connection. Anything larger terminates the connection when reaching that many requests
@@ -100,6 +100,22 @@ PROXY_LOGNAME="proxy.log"
 PROXY_CPU_FILENAME="proxy.cpu.metric.out"
 PROXY_MEMORY_FILENAME="proxy.memory.metric.out"
 PROXY_COAP_PORT="5683"
+
+# Proxy config found in properties file
+NUM_PROXY_CONNECTIONS="50"
+REQUEST_TIMEOUT="5[s]"
+MAX_RETRIES="2"
+KEEP_ALIVE_DURATION="5[s]"
+REQUEST_RETRY_INTERVAL="1[s]"
+REUSE_CONNECTIONS="true"
+PROXY_PROPERTIES=(
+  "NUM_PROXY_CONNECTIONS"
+  "REQUEST_TIMEOUT"
+  "MAX_RETRIES"
+  "KEEP_ALIVE_DURATION"
+  "REQUEST_RETRY_INTERVAL"
+  "REUSE_CONNECTIONS"
+)
 
 # Clients
 BASE_CLIENT_NAME_SUFFIX=".coap-setup.MIT-DoS.isi.deterlab.net"
