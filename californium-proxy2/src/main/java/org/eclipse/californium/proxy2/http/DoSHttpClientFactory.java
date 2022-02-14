@@ -142,12 +142,10 @@ public class DoSHttpClientFactory {
 		// Source: https://hc.apache.org/httpcomponents-client-5.1.x/current/httpclient5/apidocs/org/apache/hc/client5/http/config/RequestConfig.Builder.html
 
     final long keepAliveDurationSec = config.get(DoSConfig.KEEP_ALIVE_DURATION, TimeUnit.SECONDS);
-    final TimeValue keepAliveDuration = TimeValue.ofSeconds(keepAliveDurationSec);
     final long requestTimeoutSec = config.get(DoSConfig.REQUEST_TIMEOUT, TimeUnit.SECONDS);
 
 		return RequestConfig
       .custom()
-      .setConnectionKeepAlive(keepAliveDuration)
       .setConnectionRequestTimeout(Timeout.ofSeconds(requestTimeoutSec))
       .setConnectTimeout(Timeout.ofSeconds(keepAliveDurationSec))
       .build();
