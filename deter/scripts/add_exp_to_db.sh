@@ -48,7 +48,7 @@ expname=$(basename $exp_dir)
 check_present $SCRIPTS_DIR/functions_and_procedures.sql
 check_present $exp_dir/metadata/config.json
 
-functions_and_procedures_path=$SCRIPTS_DIR/functions_and_procedures.sql
+functions_and_procedures_path=$SCRIPTS_DIR/sql/functions_and_procedures.sql
 joined_config=$exp_dir/metadata/config.json
 
 # Create database if not exists
@@ -60,27 +60,14 @@ python3 $SCRIPTS_DIR/bootstrap_db.py -d $dbname \
                                      -p $functions_and_procedures_path
 
 # Send each trial's data to the DB
-# pids=()
 infiles=""
 for D in $exp_dir/*; do
   bd="$(basename $D)"
   if [[ -d $D && $bd != "metadata" ]]; then
     csv_file="$D/$expname.csv"
     infiles+="$csv_file;"
-    # echo "Writing trial $bd data to DB $dbname..."
-    # (python3 $SCRIPTS_DIR/send_to_db.py -i $csv_file \
-    #                                     -e $expname \
-    #                                     -t $bd \
-    #                                     -c $joined_config \
-    #                                     -d $dbname)
-    # # pids+=($!)
-    # # break;
   fi
 done
-# # And wait for all processing to finish
-# for pid in "${pids[@]}"; do
-#   wait $pid
-# done
 python3 $SCRIPTS_DIR/all_trials_read_send_to_db.py -i $infiles \
                                                    -e $expname \
                                                    -t $bd \

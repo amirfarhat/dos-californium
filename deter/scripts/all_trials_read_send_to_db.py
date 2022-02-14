@@ -120,19 +120,21 @@ def read_data(node_name_map_ids):
 def insert_experiment_table(cfg):
   sql = """
   SELECT insert_into_experiment(
-    %s, %s, %s,
+    %s, %s,
     %s, %s, %s, 
-    %s, %s, %s,
+    %s,
     %s, %s, %s, %s, %s, %s,
-    %s, %s
+    %s,
+    %s, %s, %s, %s, %s, %s
   );
   """
   sql_args = (
-    args.expname, cfg["attack_rate"], cfg["proxy_connections"], 
+    args.expname, cfg["attack_rate"], 
     cfg["server_connections"], cfg["max_keep_alive_requests"], cfg["num_clients"], 
-    cfg["num_trials"],  cfg["proxy_retry_strategy"], cfg["proxy_pooling_strategy"],
+    cfg["num_trials"],
     cfg["origin_server_duration"], cfg["attacker_duration"], cfg["receiver_duration"], cfg["proxy_duration"], cfg["client_duration"], cfg["attacker_start_lag_duration"],
-    cfg["all_trials_read_send_to_db"], cfg["topology_name"]
+    cfg["topology_name"],
+    cfg["num_proxy_connections"], cfg["request_timeout"], cfg["max_retries"], cfg["keep_alive_duration"], cfg["request_retry_interval"], cfg["reuse_connections"]
   )
   cur.execute(sql, sql_args)
   con.commit()

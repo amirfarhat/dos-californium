@@ -74,10 +74,7 @@ def parse_config(config_dict):
   config_dict["topology_name"] = os.environ["TOPOLOGY_NAME"]
   config_dict["pause_time"] = os.environ["PAUSE_TIME"]
   config_dict["wait_time"] = os.environ["WAIT_TIME"]
-  config_dict["proxy_connections"] = os.environ["PROXY_CONNECTIONS"]
   config_dict["server_connections"] = os.environ["SERVER_CONNECTIONS"]
-  config_dict["proxy_pooling_strategy"] = os.environ["PROXY_POOLING_STRATEGY"]
-  config_dict["proxy_retry_strategy"] = os.environ["PROXY_RETRY_STRATEGY"]
   config_dict["proxy_heap_size_mb"] = os.environ["PROXY_HEAP_SIZE_MB"]
   config_dict["origin_server_duration"] = os.environ["ORIGIN_SERVER_DURATION"]
   config_dict["attacker_duration"] = os.environ["ATTACKER_DURATION"]
@@ -87,8 +84,12 @@ def parse_config(config_dict):
   config_dict["attacker_start_lag_duration"] = os.environ["ATTACKER_START_LAG_DURATION"]
   config_dict["max_keep_alive_requests"] = os.environ.get("MAX_KEEP_ALIVE_REQUESTS", "100") # 100 for backwards compatibility
 
-def add_derivatives(config_dict):
-  pass
+  config_dict["num_proxy_connections"] = os.environ["NUM_PROXY_CONNECTIONS"]
+  config_dict["request_timeout"] = os.environ["REQUEST_TIMEOUT"]
+  config_dict["max_retries"] = os.environ["MAX_RETRIES"]
+  config_dict["keep_alive_duration"] = os.environ["KEEP_ALIVE_DURATION"]
+  config_dict["request_retry_interval"] = os.environ["REQUEST_RETRY_INTERVAL"]
+  config_dict["reuse_connections"] = os.environ["REUSE_CONNECTIONS"]
 
 def main():
   config_dict = dict()
@@ -99,9 +100,6 @@ def main():
   parse_config(config_dict)
   parse_topo(config_dict)
   parse_expinfo(config_dict)
-
-  # Add derivative config fields
-  add_derivatives(config_dict)
 
   # Write config to out config file
   with open(args.outconfig, 'w') as f:

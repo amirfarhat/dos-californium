@@ -20,6 +20,8 @@ DATA_DIR=$CF_HOME/deter/expdata/real/final
 SCRIPTS_DIR=$CF_HOME/deter/scripts
 TOPOS_DIR=$CF_HOME/deter/topologies
 
+mkdir -p $DATA_DIR
+
 # Construct full path to experiment by stripping zip suffix
 zipped_experiment_name=$1
 proper_experiment_name="${zipped_experiment_name%.zip}"

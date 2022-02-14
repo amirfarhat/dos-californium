@@ -25,21 +25,23 @@ def sql_create_tables():
     CREATE TABLE IF NOT EXISTS "experiment" (
       "exp_id" text PRIMARY KEY NOT NULL,
       "attacker_rate" text NOT NULL,
-      "proxy_connections" int NOT NULL,
       "server_connections" int NOT NULL,
       "max_keep_alive_requests" int NOT NULL,
       "num_clients" int NOT NULL,
       "num_trials" int NOT NULL,
-      "proxy_retry_strategy" int NOT NULL,
-      "proxy_pooling_strategy" text NOT NULL,
       "origin_server_duration" int NOT NULL,
       "attacker_duration" int NOT NULL,
       "receiver_duration" int NOT NULL,
       "proxy_duration" int NOT NULL,
       "client_duration" int NOT NULL,
       "attacker_start_lag_duration" int NOT NULL,
-      "proxy_request_timeout_ms" int NOT NULL,
-      "topology_name" text NOT NULL
+      "topology_name" text NOT NULL,
+      "num_proxy_connections" int NOT NULL,
+      "request_timeout" text NOT NULL,
+      "max_retries" int NOT NULL,
+      "keep_alive_duration" text NOT NULL,
+      "request_retry_interval" text NOT NULL,
+      "reuse_connections" boolean NOT NULL
     );
 
     CREATE TABLE IF NOT EXISTS "node" (

@@ -96,8 +96,6 @@ UUID.properties
 Proxy.properties
 Proxy2.properties
 *.log
-*.sql
-*.sqlite
 
 # OS generated files #
 ######################
