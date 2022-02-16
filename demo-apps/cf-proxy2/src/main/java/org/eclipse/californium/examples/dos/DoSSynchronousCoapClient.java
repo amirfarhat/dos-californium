@@ -1,8 +1,10 @@
 package org.eclipse.californium.examples.dos;
 
+import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
 import java.sql.Timestamp;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.eclipse.californium.core.CoapClient;
@@ -11,6 +13,7 @@ import org.eclipse.californium.core.coap.Request;
 import org.eclipse.californium.core.config.CoapConfig;
 import org.eclipse.californium.core.network.RandomTokenGenerator;
 import org.eclipse.californium.core.network.TokenGenerator.Scope;
+import org.eclipse.californium.core.network.stack.ReliabilityLayerParameters;
 import org.eclipse.californium.elements.config.Configuration;
 import org.eclipse.californium.elements.config.TcpConfig;
 import org.eclipse.californium.elements.config.UdpConfig;
@@ -19,6 +22,8 @@ import org.eclipse.californium.proxy2.config.DoSConfig;
 import org.eclipse.californium.proxy2.config.Proxy2Config;
 
 public class DoSSynchronousCoapClient {
+
+	private static final File CLIENT_TIMEOUT_CONFIG_FILE = new File("DoSClient.properties");
 
 	private static final int MAX_MID = 64999;
 	private static final boolean VERBOSE = true;
@@ -76,7 +81,12 @@ public class DoSSynchronousCoapClient {
 		
 		// Prepare client configuration
 		client.useCONs();
-		// Builder reliabilityParams = ReliabilityLayerParameters.builder();
+		final Configuration timeoutConfig = new Configuration();
+		timeoutConfig.load(CLIENT_TIMEOUT_CONFIG_FILE);
+		final ReliabilityLayerParameters reliabilityParams = ReliabilityLayerParameters
+			.builder()
+			.applyConfig(timeoutConfig)
+			.build();
 
 		String midTok, destinationUriWithMidTok;
 		Request request;
@@ -95,8 +105,8 @@ public class DoSSynchronousCoapClient {
 			destinationUriWithMidTok = destinationUri + "/" + midTok;
 			request.getOptions().setProxyUri(destinationUriWithMidTok);
 
-			// TODO client reliability parameters here
-			// request.setReliabilityLayerParameters();
+			// Update reliability parameters
+			request.setReliabilityLayerParameters(reliabilityParams);
 
 			request(client, request);
 		}

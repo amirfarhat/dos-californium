@@ -18,6 +18,10 @@ function log () {
 
 sudo mkdir -p $TMP_DATA
 
+log "Preparing client configuration..."
+bash $BIN_HOME/prepare_californium_configuration.sh $CLIENT_PROPERTIES_FILE $HOME/$CLIENT_PROPERTIES_FILE_NAME "${CLIENT_PROPERTIES[*]}" COAP.
+log "Done!"
+
 if [[ $TCPDUMP -eq 1 ]]; then
   log "Running client tcpdump...\n"
   screen -d -m sudo $BIN_HOME/run_tcpdump.sh client

@@ -5,7 +5,7 @@ host_name=$(hostname | awk '{print tolower($0)}')
 # Decide where home is, based on the current device host name
 if [[ $host_name == *"deter"* ]]; then
   CF_HOME="/proj/MIT-DoS/exp/coap-setup/deps/dos-californium"
-elif [[ $host_name == *"amir"* ]]; then
+elif [[ $host_name == *"amir"* ]] || [[ $host_name == *"csail"* ]]; then
   CF_HOME="/Users/amirfarhat/workplace/research/dos-californium"
 else
   CF_HOME="/home/ubuntu/dos-californium"
@@ -27,7 +27,9 @@ TMP_DATA="$TMP/data"
 # Locations of specific files
 CF_PROXY_JAR="$CF_HOME/demo-apps/run/cf-proxy2-3.2.0.jar"
 PROPERTIES_FILE_NAME="DoSProxy.properties"
+CLIENT_PROPERTIES_FILE_NAME="DoSClient.properties"
 PROPERTIES_FILE="$UTILS_HOME/$PROPERTIES_FILE_NAME"
+CLIENT_PROPERTIES_FILE="$UTILS_HOME/$CLIENT_PROPERTIES_FILE_NAME"
 
 RUN_USER="amirf"
 
@@ -124,6 +126,20 @@ for ((i=1; i<=$NUM_CLIENTS; i++)); do
   CLIENTS+=("client${i}${BASE_CLIENT_NAME_SUFFIX}");
 done
 
+# CLient config found in properties files
+ACK_TIMEOUT="2[s]"
+ACK_INIT_RANDOM="1.5"
+ACK_TIMEOUT_SCALE="2.0"
+MAX_RETRANSMIT="4"
+NSTART="1"
+CLIENT_PROPERTIES=(
+  "ACK_TIMEOUT"
+  "ACK_INIT_RANDOM"
+  "ACK_TIMEOUT_SCALE"
+  "MAX_RETRANSMIT"
+  "NSTART"
+)
+
 # Collection of all hosts
 HOST_NAMES=(
   "$ATTACKER_NAME"
@@ -132,3 +148,14 @@ HOST_NAMES=(
   "$RECEIVER_NAME"
   "${CLIENTS[@]}"
 )
+
+# Utility functions
+check_file_exists() {
+  file_to_check=$1
+  if [[ ! -f $file_to_check ]]; then
+    # basename_file="$(basename $file_to_check)"
+    echo "Cannot find file $file_to_check"
+    exit 1
+  fi
+}
+export -f check_file_exists

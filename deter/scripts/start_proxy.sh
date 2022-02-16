@@ -22,7 +22,7 @@ OPLOG=$TMP_DATA/proxy_ops.log
 sudo touch $OPLOG
 
 log "Preparing proxy configuration..."
-bash $BIN_HOME/prepare_proxy_configuration.sh
+bash $BIN_HOME/prepare_californium_configuration.sh $PROPERTIES_FILE $HOME/$PROPERTIES_FILE_NAME "${PROXY_PROPERTIES[*]}" DOS.
 log "Done!"
 
 if [[ $TCPDUMP -eq 1 ]]; then
