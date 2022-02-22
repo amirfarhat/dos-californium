@@ -3,6 +3,7 @@ package org.eclipse.californium.examples.dos;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
+import java.security.GeneralSecurityException;
 import java.sql.Timestamp;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -11,6 +12,7 @@ import org.eclipse.californium.core.CoapClient;
 import org.eclipse.californium.core.CoapResponse;
 import org.eclipse.californium.core.coap.Request;
 import org.eclipse.californium.core.config.CoapConfig;
+import org.eclipse.californium.core.network.CoapEndpoint;
 import org.eclipse.californium.core.network.RandomTokenGenerator;
 import org.eclipse.californium.core.network.TokenGenerator.Scope;
 import org.eclipse.californium.core.network.stack.ReliabilityLayerParameters;
@@ -18,8 +20,11 @@ import org.eclipse.californium.elements.config.Configuration;
 import org.eclipse.californium.elements.config.TcpConfig;
 import org.eclipse.californium.elements.config.UdpConfig;
 import org.eclipse.californium.elements.exception.ConnectorException;
+import org.eclipse.californium.examples.util.SecureEndpointPool;
 import org.eclipse.californium.proxy2.config.DoSConfig;
 import org.eclipse.californium.proxy2.config.Proxy2Config;
+import org.eclipse.californium.scandium.DTLSConnector;
+import org.eclipse.californium.scandium.config.DtlsConnectorConfig;
 
 public class DoSSynchronousCoapClient {
 
@@ -38,6 +43,17 @@ public class DoSSynchronousCoapClient {
 		DoSConfig.register();
 	}
 
+	private static void dPrint(Object obj) {
+		if (VERBOSE) {
+			Timestamp timestamp = new Timestamp(System.currentTimeMillis());
+			System.out.println(String.format(
+				"%s -- %s",
+				timestamp,
+				obj
+			));
+		}
+	}
+
 	private static CoapResponse request(CoapClient client, Request request) {
 		dPrint("Send: " + reqCount.incrementAndGet());
 		try {
@@ -49,17 +65,32 @@ public class DoSSynchronousCoapClient {
 		}
 	}
 
-	private static void dPrint(Object obj) {
-		if (VERBOSE) {
-			Timestamp timestamp = new Timestamp(System.currentTimeMillis());
-			System.out.println(String.format(
-				"%s -- %s",
-				timestamp,
-				obj
-			));
+	private static CoapClient makeCoapClient(boolean schemeIsCoap, Configuration configuration) throws IOException, GeneralSecurityException {
+		CoapClient client = new CoapClient();
+		if (schemeIsCoap) {
+			System.out.println("Make CoAP client");
+		} else {
+			System.out.println("Make CoAPs client");
+
+			// Configure DTLS connector
+			final DtlsConnectorConfig dtlsConnectorConfig = SecureEndpointPool
+      	.setupClient(configuration)
+      	.build();
+			final DTLSConnector dtlsConnector = new DTLSConnector(dtlsConnectorConfig);
+
+			// Configure coap endpoint
+			final CoapEndpoint coapEndpoint = new CoapEndpoint.Builder()
+					.setConfiguration(configuration)
+					.setConnector(dtlsConnector)
+					.build();
+					
+			client.setEndpoint(coapEndpoint);
 		}
+
+		return client;
 	}
-  public static void main(String[] args) {
+
+  public static void main(String[] args) throws IOException, GeneralSecurityException {
     // Configure parameters from input args
 		if (args.length != 2 && args.length != 3) {
 			System.out.println("Args [proxy uri] [dest uri] [OPTIONAL num_messages int]");
@@ -74,13 +105,17 @@ public class DoSSynchronousCoapClient {
 			num_messages = Integer.MAX_VALUE; // basically infinite
 		}
 
-		// Create client
-		final Configuration config = Configuration.getStandard();
-		RandomTokenGenerator tokenGenerator = new RandomTokenGenerator(config);
-		CoapClient client = new CoapClient();
+		// Determine if this client uses DTLS or not
+		boolean schemeIsCoap;
+		if (proxyUri.startsWith("coaps")) {
+			schemeIsCoap = false;
+		} else if (proxyUri.startsWith("coap")) {
+			schemeIsCoap = true;
+		} else {
+			throw new RuntimeException("Unrecognized scheme " + proxyUri);
+		}
 		
 		// Prepare client configuration
-		client.useCONs();
 		final Configuration timeoutConfig = new Configuration();
 		timeoutConfig.load(CLIENT_TIMEOUT_CONFIG_FILE);
 		final ReliabilityLayerParameters reliabilityParams = ReliabilityLayerParameters
@@ -88,6 +123,11 @@ public class DoSSynchronousCoapClient {
 			.applyConfig(timeoutConfig)
 			.build();
 
+		// Create client
+		final CoapClient client = makeCoapClient(schemeIsCoap, timeoutConfig);
+		client.useCONs();
+
+		RandomTokenGenerator tokenGenerator = new RandomTokenGenerator(Configuration.getStandard());
 		String midTok, destinationUriWithMidTok;
 		Request request;
 

@@ -22,6 +22,7 @@ import java.util.Arrays;
 import org.eclipse.californium.elements.exception.ConnectorException;
 import org.eclipse.californium.examples.basic.BasicForwardingProxy2;
 import org.eclipse.californium.examples.dos.DoSSynchronousCoapClient;
+import org.eclipse.californium.examples.dos.DoSOptimizedDTLSProxy;
 import org.eclipse.californium.examples.dos.DoSOptimizedForwardingProxy;
 
 /**
@@ -40,6 +41,7 @@ public class Proxy2 {
 	private static final String BASIC_FORWARDING_PROXY = BasicForwardingProxy2.class.getSimpleName();
 	private static final String DOS_FORWARDING_PROXY = DoSOptimizedForwardingProxy.class.getSimpleName();
 	private static final String DOS_SYNC_PROXY_COAP_CLIENT = DoSSynchronousCoapClient.class.getSimpleName();
+	private static final String DOS_DTLS_PROXY = DoSOptimizedDTLSProxy.class.getSimpleName();
 
 	public static void main(String[] args)
 			throws IOException, ConnectorException, InterruptedException, GeneralSecurityException {
@@ -76,6 +78,9 @@ public class Proxy2 {
 			} else if (DOS_SYNC_PROXY_COAP_CLIENT.equals(start)) {
 				DoSSynchronousCoapClient.main(args2);
 				return;
+			} else if (DOS_DTLS_PROXY.equals(start)) {
+				DoSOptimizedDTLSProxy.main(args2);
+				return;
 			}
 		}
 		System.out.println("\nCalifornium (Cf) Proxy2-Starter");
@@ -83,7 +88,10 @@ public class Proxy2 {
 		System.out.println();
 		System.out.println(
 				"Usage: " + Proxy2.class.getSimpleName() + " (" + CROSS_PROXY + "|" + SECURE_PROXY + "|" + COAP_CLIENT
-						+ "|" + SECURE_COAP_CLIENT + "|" + HTTP_CLIENT + "|" + COAP_SERVER + "|" + HTTP_SERVER + "|" + BASIC_FORWARDING_PROXY + "|" + DOS_FORWARDING_PROXY + "|" + DOS_SYNC_PROXY_COAP_CLIENT + ")");
+						+ "|" + SECURE_COAP_CLIENT + "|" + HTTP_CLIENT + "|" + COAP_SERVER + "|" + HTTP_SERVER
+						+ "|" + BASIC_FORWARDING_PROXY + "|" + DOS_FORWARDING_PROXY + "|" + DOS_SYNC_PROXY_COAP_CLIENT 
+						+ "|" + DOS_DTLS_PROXY
+						+ ")");
 		if (start != null) {
 			System.out.println("   '" + start + "' is not supported!");
 		}
