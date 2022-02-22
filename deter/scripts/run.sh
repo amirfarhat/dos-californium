@@ -32,6 +32,14 @@ function log () {
 # Start internal IP discovery service
 bash $SCRIPTS_HOME/storeips.sh
 
+# Record the interfaces for each device
+for host_name in ${HOST_NAMES[@]}; do
+  interface_mapping=$(ssh $RUN_USER@$host_name "sudo $SCRIPTS_HOME/get_interfaces.sh")
+  echo "Got mapping ${interface_mapping} from $host_name"
+done
+
+exit 1
+
 printf "Using hosts: %s\n" "${HOST_NAMES[@]}"
 printf "Using clients: %s\n" "${CLIENTS[@]}"
 
