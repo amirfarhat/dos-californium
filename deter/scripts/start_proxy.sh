@@ -27,7 +27,7 @@ log "Done!"
 
 if [[ $TCPDUMP -eq 1 ]]; then
   log "Running proxy tcpdump...\n"
-  sudo screen -c $UTILS_HOME/oplog.conf -d -m -L sudo $BIN_HOME/run_tcpdump.sh proxy
+  sudo screen -c $UTILS_HOME/oplog.conf -d -m -L sudo $BIN_HOME/run_tcpdump.sh
 fi
 
 if [[ $MONITOR_PROXY_CPU -eq 1 ]]; then

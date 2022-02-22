@@ -34,9 +34,6 @@ bash $SCRIPTS_HOME/storeips.sh
 
 # Record the interfaces for each device
 bash $SCRIPTS_HOME/record_interfaces.sh
-cat $INTERFACES_FILE
-
-exit 1
 
 printf "Using hosts: %s\n" "${HOST_NAMES[@]}"
 printf "Using clients: %s\n" "${CLIENTS[@]}"

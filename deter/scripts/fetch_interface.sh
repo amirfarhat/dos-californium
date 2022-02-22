@@ -3,7 +3,7 @@
 source /proj/MIT-DoS/exp/coap-setup/deps/dos-californium/deter/scripts/config.sh
 
 # Record short hostname
-my_hostname=$(hostname | awk '{split($0, a, "."); print a[1]}')
+my_hostname=$(hostname | awk '{ ORS="" } {split($0, a, "."); print a[1]}')
 
 # Fetch the interface associated with the above hostname
 interface=$(\

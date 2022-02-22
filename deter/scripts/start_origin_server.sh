@@ -23,7 +23,7 @@ sudo mkdir -p $TMP_DATA
 
 if [[ $TCPDUMP -eq 1 ]]; then
   log "Running origin_server tcpdump...\n"
-  screen -d -m sudo $BIN_HOME/run_tcpdump.sh origin_server
+  screen -d -m sudo $BIN_HOME/run_tcpdump.sh
 fi
 
 if [[ $MONITOR_ORIGIN_SERVER_CPU -eq 1 ]]; then

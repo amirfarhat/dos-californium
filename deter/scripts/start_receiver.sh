@@ -20,5 +20,5 @@ sudo mkdir -p $TMP_DATA
 
 if [[ $TCPDUMP -eq 1 ]]; then
   log "Running receiver tcpdump...\n"
-  screen -d -m sudo $BIN_HOME/run_tcpdump.sh receiver
+  screen -d -m sudo $BIN_HOME/run_tcpdump.sh
 fi

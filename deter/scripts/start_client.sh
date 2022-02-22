@@ -24,7 +24,7 @@ log "Done!"
 
 if [[ $TCPDUMP -eq 1 ]]; then
   log "Running client tcpdump...\n"
-  screen -d -m sudo $BIN_HOME/run_tcpdump.sh client
+  screen -d -m sudo $BIN_HOME/run_tcpdump.sh
 fi
 
 log "Running client...\n"
