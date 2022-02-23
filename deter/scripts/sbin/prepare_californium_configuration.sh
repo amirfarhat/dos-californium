@@ -1,7 +1,6 @@
 #!/bin/bash
 
-# source /proj/MIT-DoS/exp/coap-setup/deps/dos-californium/deter/scripts/config.sh
-source /Users/amirfarhat/workplace/research/dos-californium/deter/scripts/config.sh
+source /proj/MIT-DoS/exp/coap-setup/deps/dos-californium/deter/scripts/config.sh
 
 # The base property file has some fields which should be modified by dynamic
 # configuration, coming from config.sh. This scripts sets those fields in a new

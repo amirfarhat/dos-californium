@@ -34,7 +34,7 @@ elif [[ $my_hostname == "client*" ]]; then
   client_tcpdump="${my_hostname}_dump.pcap"
   rm -f $TMP_DATA/$client_tcpdump
   touch $TMP_DATA/$client_tcpdump
-  tcpdump -n -i $my_interface udp port $PROXY_COAP_PORT -w $TMP_DATA/$client_tcpdump &
+  sudo tcpdump -n -i $my_interface udp port $PROXY_COAP_PORT -w $TMP_DATA/$client_tcpdump &
 
 else
   echo "Unhandled hostname $my_hostname"
