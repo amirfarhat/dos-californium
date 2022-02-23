@@ -23,7 +23,7 @@ sudo touch $OPLOG
 
 log "Preparing proxy configuration..."
 bash $BIN_HOME/prepare_californium_configuration.sh $PROPERTIES_FILE $HOME/$PROPERTIES_FILE_NAME "${PROXY_PROPERTIES[*]}" DOS.
-log "Done!"
+log "Done!\n"
 
 if [[ $TCPDUMP -eq 1 ]]; then
   log "Running proxy tcpdump...\n"

@@ -29,7 +29,7 @@ elif [[ $my_hostname == "receiver" ]]; then
   touch $TMP_DATA/$RECEIVER_TCPDUMP
   tcpdump -n -i $my_interface udp port $RECEIVER_COAP_PORT -w $TMP_DATA/$RECEIVER_TCPDUMP &
 
-elif [[ $my_hostname == "client*" ]]; then
+elif [[ $my_hostname == "client"* ]]; then
   sleep_amt=$CLIENT_DURATION
   client_tcpdump="${my_hostname}_dump.pcap"
   rm -f $TMP_DATA/$client_tcpdump
