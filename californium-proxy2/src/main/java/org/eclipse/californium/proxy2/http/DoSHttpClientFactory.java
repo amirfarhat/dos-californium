@@ -109,14 +109,14 @@ public class DoSHttpClientFactory {
       .setKeepAliveStrategy(new DefaultConnectionKeepAliveStrategy() {
         @Override
         public TimeValue getKeepAliveDuration(HttpResponse response, HttpContext context) {
-          if (reuseConnections) {
-            // If we are to reuse connections, then this connection should be kept alive
-            // as long as possible. To "suggest no duration", we enter a negative number.
-            // In this case, the proxy will rely on the server to consider the connection
-            // idle and consequently wait for the server to send a FIN-ACK to the proxy.
-            // Source: https://hc.apache.org/httpcomponents-client-5.1.x/current/httpclient5/apidocs/org/apache/hc/client5/http/impl/DefaultConnectionKeepAliveStrategy.html
-            return null;
-          }
+          // if (reuseConnections) {
+          //   // If we are to reuse connections, then this connection should be kept alive
+          //   // as long as possible. To "suggest no duration", we enter a negative number.
+          //   // In this case, the proxy will rely on the server to consider the connection
+          //   // idle and consequently wait for the server to send a FIN-ACK to the proxy.
+          //   // Source: https://hc.apache.org/httpcomponents-client-5.1.x/current/httpclient5/apidocs/org/apache/hc/client5/http/impl/DefaultConnectionKeepAliveStrategy.html
+          //   return TimeValue.NEG_ONE_SECOND;
+          // }
           
           // In the case where the response from the recipient contains a keep-alive field,
           // we want to use that value
@@ -170,8 +170,15 @@ public class DoSHttpClientFactory {
 	private static PoolingAsyncClientConnectionManager createPoolingConnManager(Configuration config) {
 		// Source: https://hc.apache.org/httpcomponents-client-5.1.x/current/httpclient5/apidocs/org/apache/hc/client5/http/impl/nio/PoolingAsyncClientConnectionManagerBuilder.html
 
-    final TimeValue keepAliveDuration = TimeValue.ofSeconds(config.get(DoSConfig.KEEP_ALIVE_DURATION, TimeUnit.SECONDS));
+    final boolean reuseConnections = config.get(DoSConfig.REUSE_CONNECTIONS);
     final int numProxyConnections = config.get(DoSConfig.NUM_PROXY_CONNECTIONS);
+
+    // If we re-use connections, the keep-alive time should be virtually infinite, whereas
+    // if we do NOT re-use connections, connections should be kept alive for the configured time.
+    final TimeValue keepAliveDuration = 
+      reuseConnections 
+        ? null
+        : TimeValue.ofSeconds(config.get(DoSConfig.KEEP_ALIVE_DURATION, TimeUnit.SECONDS));
 
     return PoolingAsyncClientConnectionManagerBuilder
       .create()
