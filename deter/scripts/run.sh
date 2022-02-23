@@ -29,6 +29,9 @@ function log () {
   fi
 }
 
+mkdir -p $IPS_HOME
+mkdir -p $EXPDATA_HOME
+
 # Start internal IP discovery service
 bash $SCRIPTS_HOME/storeips.sh
 
