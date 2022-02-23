@@ -23,12 +23,12 @@ sudo touch $OPLOG
 
 log "Preparing client configuration..."
 bash $BIN_HOME/prepare_californium_configuration.sh $CLIENT_PROPERTIES_FILE $HOME/$CLIENT_PROPERTIES_FILE_NAME "${CLIENT_PROPERTIES[*]}" COAP.
-log "Done!"
+log "Done!\n"
 
 if [[ $TCPDUMP -eq 1 ]]; then
   log "Running client tcpdump...\n"
-  sudo -c $UTILS_HOME/oplog.conf -d -m -L sudo $BIN_HOME/run_tcpdump.sh
+  sudo screen -c $UTILS_HOME/oplog.conf -d -m -L sudo $BIN_HOME/run_tcpdump.sh
 fi
 
 log "Running client...\n"
-sudo -c $UTILS_HOME/oplog.conf -d -m -L sudo $BIN_HOME/client_run.sh
+sudo screen -c $UTILS_HOME/oplog.conf -d -m -L sudo $BIN_HOME/client_run.sh
