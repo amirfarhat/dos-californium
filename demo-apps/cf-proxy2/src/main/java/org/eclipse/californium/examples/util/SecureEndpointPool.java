@@ -30,6 +30,9 @@ import org.eclipse.californium.scandium.config.DtlsConfig;
 import org.eclipse.californium.scandium.config.DtlsConnectorConfig;
 import org.eclipse.californium.scandium.config.DtlsConfig.DtlsRole;
 import org.eclipse.californium.scandium.dtls.CertificateType;
+import org.eclipse.californium.scandium.dtls.cipher.CipherSuite;
+import org.eclipse.californium.scandium.dtls.pskstore.AdvancedMultiPskStore;
+import org.eclipse.californium.scandium.dtls.pskstore.AdvancedSinglePskStore;
 import org.eclipse.californium.scandium.dtls.x509.SingleCertificateProvider;
 import org.eclipse.californium.scandium.dtls.x509.StaticNewAdvancedCertificateVerifier;
 import org.eclipse.californium.scandium.dtls.x509.StaticNewAdvancedCertificateVerifier.Builder;
@@ -95,12 +98,17 @@ public class SecureEndpointPool extends EndpointPool {
 		Certificate[] trustedCertificates = SslContextUtil.loadTrustedCertificates(
 				SslContextUtil.CLASSPATH_SCHEME + TRUST_STORE_LOCATION, null, TRUST_STORE_PASSWORD);
 		DtlsConnectorConfig.Builder dtlsConfig = DtlsConnectorConfig.builder(config);
-		dtlsConfig.setCertificateIdentityProvider(new SingleCertificateProvider(clientCredentials.getPrivateKey(), clientCredentials.getCertificateChain(),
-				CertificateType.X_509, CertificateType.RAW_PUBLIC_KEY));
-		Builder verifierBuilder = StaticNewAdvancedCertificateVerifier.builder();
-		verifierBuilder.setTrustedCertificates(trustedCertificates);
-		verifierBuilder.setTrustAllRPKs();
-		dtlsConfig.setAdvancedCertificateVerifier(verifierBuilder.build());
+
+		if (config.get(DtlsConfig.DTLS_CIPHER_SUITES) != null && !config.get(DtlsConfig.DTLS_CIPHER_SUITES).contains(CipherSuite.TLS_PSK_WITH_AES_128_GCM_SHA256)) {
+			dtlsConfig.setCertificateIdentityProvider(new SingleCertificateProvider(clientCredentials.getPrivateKey(), clientCredentials.getCertificateChain(),
+					CertificateType.X_509, CertificateType.RAW_PUBLIC_KEY));
+			Builder verifierBuilder = StaticNewAdvancedCertificateVerifier.builder();
+			verifierBuilder.setTrustedCertificates(trustedCertificates);
+			verifierBuilder.setTrustAllRPKs();
+			dtlsConfig.setAdvancedCertificateVerifier(verifierBuilder.build());
+		}
+
+		dtlsConfig.setAdvancedPskStore(new AdvancedSinglePskStore("Client_identity", "secretPSK".getBytes()));
 
 		return dtlsConfig;
 	}
@@ -113,12 +121,20 @@ public class SecureEndpointPool extends EndpointPool {
 		Certificate[] trustedCertificates = SslContextUtil.loadTrustedCertificates(
 				SslContextUtil.CLASSPATH_SCHEME + TRUST_STORE_LOCATION, null, TRUST_STORE_PASSWORD);
 		DtlsConnectorConfig.Builder dtlsConfig = DtlsConnectorConfig.builder(config);
-		dtlsConfig.setCertificateIdentityProvider(new SingleCertificateProvider(serverCredentials.getPrivateKey(), serverCredentials.getCertificateChain(),
-				CertificateType.X_509, CertificateType.RAW_PUBLIC_KEY));
-		Builder verifierBuilder = StaticNewAdvancedCertificateVerifier.builder();
-		verifierBuilder.setTrustedCertificates(trustedCertificates);
-		verifierBuilder.setTrustAllRPKs();
-		dtlsConfig.setAdvancedCertificateVerifier(verifierBuilder.build());
+
+		if (config.get(DtlsConfig.DTLS_CIPHER_SUITES) != null && !config.get(DtlsConfig.DTLS_CIPHER_SUITES).contains(CipherSuite.TLS_PSK_WITH_AES_128_GCM_SHA256)) {
+			dtlsConfig.setCertificateIdentityProvider(new SingleCertificateProvider(serverCredentials.getPrivateKey(), serverCredentials.getCertificateChain(),
+					CertificateType.X_509, CertificateType.RAW_PUBLIC_KEY));
+			Builder verifierBuilder = StaticNewAdvancedCertificateVerifier.builder();
+			verifierBuilder.setTrustedCertificates(trustedCertificates);
+			verifierBuilder.setTrustAllRPKs();
+			dtlsConfig.setAdvancedCertificateVerifier(verifierBuilder.build());
+		}
+
+		AdvancedMultiPskStore pskStore = new AdvancedMultiPskStore();
+		byte[] secretBytes = "secretPSK".getBytes();
+		pskStore.setKey("Client_identity", secretBytes);
+		dtlsConfig.setAdvancedPskStore(pskStore);
 
 		return dtlsConfig;
 	}

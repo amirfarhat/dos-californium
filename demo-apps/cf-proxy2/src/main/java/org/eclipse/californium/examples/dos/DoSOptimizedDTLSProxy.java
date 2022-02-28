@@ -30,30 +30,25 @@ import org.eclipse.californium.scandium.config.DtlsConnectorConfig;
 
 public class DoSOptimizedDTLSProxy {
 
-	private static final File CONFIG_FILE = new File("CaliforniumSecureProxy3.properties");
-	private static final String CONFIG_HEADER = "Californium CoAP Properties file for Secure Example Proxy";
+	// Configuration file name.
+	private static final File CONFIG_FILE = new File("DoSDTLSProxy.properties");
+
+	// Header for configuration file.
+	private static final String CONFIG_HEADER = "Californium CoAP Properties file for DoS-Optimized DTLS Forwarding Proxy";
+
+	// Default size in bytes to use for UDP buffers.
+	private static final int DEFAULT_UDP_BUFFER_SIZE = 8192;
+
 	private static final int DEFAULT_MAX_RESOURCE_SIZE = 8192;
 	private static final int DEFAULT_BLOCK_SIZE = 1024;
 
-	public static final IntegerDefinition OUTGOING_MAX_ACTIVE_PEERS = new IntegerDefinition("OUTGOING_MAX_ACTIVE_PEERS",
-			"Maximum number of outgoing peers per endpoint.", 32, 8);
-
-	public static final IntegerDefinition OUTGOING_DTLS_MAX_CONNECTIONS = new IntegerDefinition(
-			"OUTGOING_DTLS_MAX_CONNECTIONS", "Maximum number of outgoing DTLS connections per endpoint.", 32, 8);
-
-	public static final IntegerDefinition MAX_CONNECTION_POOL_SIZE = new IntegerDefinition("MAX_CONNECTION_POOL_SIZE",
-			"Maximum size of connection pool.", 1000, 32);
-
-	public static final IntegerDefinition INIT_CONNECTION_POOL_SIZE = new IntegerDefinition("INIT_CONNECTION_POOL_SIZE",
-			"Initial size of connection pool.", 250, 16);
-
 	static {
-		DoSConfig.register();
     CoapConfig.register();
 		UdpConfig.register();
-		DtlsConfig.register();
 		TcpConfig.register();
 		Proxy2Config.register();
+		DoSConfig.register();
+		DtlsConfig.register();
 	}
 
 	/**
@@ -63,25 +58,35 @@ public class DoSOptimizedDTLSProxy {
 
 		@Override
 		public void applyDefinitions(Configuration config) {
-			config.set(CoapConfig.MAX_ACTIVE_PEERS, 20000);
+			// We expect the proxy to communicate with a single server, one attacker,
+			// and many clients. So we choose a small two digit number to accommodate.
+      config.set(CoapConfig.MAX_ACTIVE_PEERS, 15);
+
+			// Choose in-memory map of messages *per peer* for de-duplication
+			config.set(CoapConfig.DEDUPLICATOR, CoapConfig.DEDUPLICATOR_PEERS_MARK_AND_SWEEP);
+
+			// Peers should become inactive according to worst-case experiment recovery time
+			config.set(CoapConfig.MAX_PEER_INACTIVITY_PERIOD, 10, TimeUnit.MINUTES);
+
 			config.set(CoapConfig.MAX_RESOURCE_BODY_SIZE, DEFAULT_MAX_RESOURCE_SIZE);
 			config.set(CoapConfig.MAX_MESSAGE_SIZE, DEFAULT_BLOCK_SIZE);
 			config.set(CoapConfig.PREFERRED_BLOCK_SIZE, DEFAULT_BLOCK_SIZE);
-			config.set(CoapConfig.MAX_PEER_INACTIVITY_PERIOD, 24, TimeUnit.HOURS);
-			config.set(Proxy2Config.HTTP_CONNECTION_IDLE_TIMEOUT, 10, TimeUnit.SECONDS);
-			config.set(Proxy2Config.HTTP_CONNECT_TIMEOUT, 15, TimeUnit.SECONDS);
-			config.set(Proxy2Config.HTTPS_HANDSHAKE_TIMEOUT, 30, TimeUnit.SECONDS);
-			config.set(UdpConfig.UDP_RECEIVE_BUFFER_SIZE, 8192);
-			config.set(UdpConfig.UDP_SEND_BUFFER_SIZE, 8192);
-			config.set(DtlsConfig.DTLS_RECEIVE_BUFFER_SIZE, 8192);
-			config.set(DtlsConfig.DTLS_SEND_BUFFER_SIZE, 8192);
+
+			// DTLS config
+			config.set(UdpConfig.UDP_RECEIVE_BUFFER_SIZE, DEFAULT_UDP_BUFFER_SIZE);
+			config.set(UdpConfig.UDP_SEND_BUFFER_SIZE, DEFAULT_UDP_BUFFER_SIZE);
+			config.set(DtlsConfig.DTLS_RECEIVE_BUFFER_SIZE, DEFAULT_UDP_BUFFER_SIZE);
+			config.set(DtlsConfig.DTLS_SEND_BUFFER_SIZE, DEFAULT_UDP_BUFFER_SIZE);
+			
+			// Maximum connections per dtls connector. Similar number as max active peers
+			config.set(DtlsConfig.DTLS_MAX_CONNECTIONS, 15);
+			config.set(DtlsConfig.DTLS_OUTBOUND_MESSAGE_BUFFER_SIZE, 1000); // Keep small
+
 			config.set(DtlsConfig.DTLS_RECEIVER_THREAD_COUNT, 1);
 			config.set(DtlsConfig.DTLS_CONNECTOR_THREAD_COUNT, 1);
+
+			// Enable periodic checking of health status
 			config.set(SystemConfig.HEALTH_STATUS_INTERVAL, 60, TimeUnit.SECONDS);
-			config.set(OUTGOING_MAX_ACTIVE_PEERS, 32);
-			config.set(OUTGOING_DTLS_MAX_CONNECTIONS, 32);
-			config.set(MAX_CONNECTION_POOL_SIZE, 1000);
-			config.set(INIT_CONNECTION_POOL_SIZE, 250);
 		}
 	};
 
@@ -92,11 +97,10 @@ public class DoSOptimizedDTLSProxy {
     DoSHttpClientFactory.setNetworkConfig(config);
 		
     // Set up main config
-    Configuration outgoingConfig = new Configuration(config);
-    outgoingConfig.set(CoapConfig.MAX_ACTIVE_PEERS, config.get(OUTGOING_MAX_ACTIVE_PEERS));
-		outgoingConfig.set(DtlsConfig.DTLS_MAX_CONNECTIONS, config.get(OUTGOING_DTLS_MAX_CONNECTIONS));
-		outgoingConfig.set(DtlsConfig.DTLS_RECEIVER_THREAD_COUNT, 1);
-		outgoingConfig.set(DtlsConfig.DTLS_CONNECTOR_THREAD_COUNT, 1);
+    Configuration incomingConfig = new Configuration(config);
+		// incomingConfig.set(DtlsConfig.DTLS_MAX_CONNECTIONS, config.get(OUTGOING_DTLS_MAX_CONNECTIONS));
+		incomingConfig.set(DtlsConfig.DTLS_RECEIVER_THREAD_COUNT, 1);
+		incomingConfig.set(DtlsConfig.DTLS_CONNECTOR_THREAD_COUNT, 1);
     final int coapsPort = config.get(CoapConfig.COAP_SECURE_PORT);
 
     // Set up coap to http forwarding
@@ -108,7 +112,7 @@ public class DoSOptimizedDTLSProxy {
 
     // Configure DTLS connector
     final DtlsConnectorConfig dtlsConnectorConfig = SecureEndpointPool
-      .setupServer(outgoingConfig)
+      .setupServer(incomingConfig)
       .setAddress(new InetSocketAddress(coapsPort))
       .setConnectionListener(new MdcConnectionListener())
       .build();
@@ -116,7 +120,7 @@ public class DoSOptimizedDTLSProxy {
 
     // Configure coap endpoint
     final CoapEndpoint coapEndpoint = new CoapEndpoint.Builder()
-				.setConfiguration(outgoingConfig)
+				.setConfiguration(incomingConfig)
 				.setConnector(dtlsConnector)
         .build();
     coapEndpoint.setMessageDeliverer(forwardProxyMessageDeliverer);
