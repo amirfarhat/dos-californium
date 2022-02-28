@@ -31,8 +31,16 @@ if [[ $DO_JAVA_PROFILING -eq 1 ]]; then
   proxy_args+=" -XX:+UnlockDiagnosticVMOptions -XX:+DebugNonSafepoints"
 fi
 
+# Determine which proxy to run, based on the DTLS toggle
+proxy_class=""
+if [[ $RUN_PROXY_WITH_DTLS -eq 1 ]]; then
+  proxy_class="DoSOptimizedDTLSProxy"
+else
+  proxy_class="DoSOptimizedForwardingProxy"
+fi
+
 # Run the proxy with proxy log
-((sudo java $proxy_args -jar $CF_PROXY_JAR DoSOptimizedForwardingProxy) 2>&1 > $TMP_DATA/$PROXY_LOGNAME) &
+((sudo java $proxy_args -jar $CF_PROXY_JAR $proxy_class) 2>&1 > $TMP_DATA/$PROXY_LOGNAME) &
 
 # Wait until proxy pid shows up
 # TODO temp variable while this until file shows up lsof -p PID | grep java_pid
@@ -68,7 +76,6 @@ if [[ $DO_JAVA_PROFILING -eq 1 ]]; then
   echo "Stopping profiling..."
   sudo ./profiler.sh stop -f $TMP_DATA/$FLAMEGRAPH_NAME --width 1500 --title $PROFILING_EVENT $proxy_pid
   cd ~
-  # TODO Add else with defaults of the kernel params
 fi
 
 # Kill proxy

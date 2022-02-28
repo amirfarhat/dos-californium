@@ -18,7 +18,14 @@ client_log="$TMP_DATA/$numbered_client.log"
 sudo rm -f $client_log
 sudo touch $client_log
 
-proxy_uri="coap://$PROXY_IP:$PROXY_COAP_PORT/coap2http"
+# The proxy URI will different if the proxy uses DTLS or not
+proxy_uri=""
+if [[ $RUN_PROXY_WITH_DTLS -eq 1 ]]; then
+  proxy_uri="coaps://$PROXY_IP:$PROXY_DTLS_PORT/coaps2http"
+else
+  proxy_uri="coap://$PROXY_IP:$PROXY_COAP_PORT/coap2http"
+fi
+
 destination_uri="http://$ORIGIN_SERVER_IP:$ORIGIN_SERVER_PORT"
 
 echo "Running client..."
