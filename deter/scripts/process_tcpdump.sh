@@ -1,5 +1,7 @@
 #!/bin/bash
 
+source /home/ubuntu/dos-californium/deter/scripts/config.sh
+
 # Parse inputs
 me=`basename "$0"`
 input_file=$1
@@ -9,11 +11,15 @@ if [[ -z "$input_file" ]] || [[ -z "$output_file" ]]; then
   exit 1
 fi
 
+# Read the pre-shared key for decryption
+psk=$(cat $PSK_FILE)
+
 filter="coap || http"
 
 # Run tshark in the backend to handle parsing and 
 # high-level protocol filtering
 (tshark \
+  -o dtls.psk:"$psk" \
   -r "$input_file" \
   -2 \
   -n \
