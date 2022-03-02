@@ -26,7 +26,12 @@ else
   proxy_uri="coap://$PROXY_IP:$PROXY_COAP_PORT/coap2http"
 fi
 
-destination_uri="http://$ORIGIN_SERVER_IP:$ORIGIN_SERVER_PORT"
+destination_uri=""
+if [[ $RUN_PROXY_WITH_HTTPS -eq 1 ]]; then
+  destination_uri="https://$ORIGIN_SERVER_IP:$ORIGIN_SERVER_HTTPS_PORT"
+else
+  destination_uri="http://$ORIGIN_SERVER_IP:$ORIGIN_SERVER_PORT"
+fi
 
 echo "Running client..."
 ((sudo java -jar $CF_PROXY_JAR DoSSynchronousCoapClient "$proxy_uri" "$destination_uri" "$NUM_CLIENT_MESSAGES") > $client_log 2>&1) &

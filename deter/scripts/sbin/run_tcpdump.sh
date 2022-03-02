@@ -12,11 +12,18 @@ else
   proxy_port=$PROXY_COAP_PORT
 fi
 
+server_port=""
+if [[ $RUN_PROXY_WITH_HTTPS -eq 1 ]]; then
+  server_port=$ORIGIN_SERVER_HTTPS_PORT
+else
+  server_port=$ORIGIN_SERVER_PORT
+fi
+
 if [[ $my_hostname == "proxy" ]]; then
   sleep_amt=$PROXY_DURATION
   rm -f $TMP_DATA/$PROXY_TCPDUMP
   touch $TMP_DATA/$PROXY_TCPDUMP
-  eval "tcpdump -n -i $my_interface port '($ORIGIN_SERVER_PORT or $proxy_port or $RECEIVER_COAP_PORT)' -w $TMP_DATA/$PROXY_TCPDUMP &"
+  eval "tcpdump -n -i $my_interface port '($server_port or $proxy_port or $RECEIVER_COAP_PORT)' -w $TMP_DATA/$PROXY_TCPDUMP &"
 
 elif [[ $my_hostname == "attacker" ]]; then
   sleep_amt=$PROXY_DURATION
@@ -28,7 +35,7 @@ elif [[ $my_hostname = "originserver" ]]; then
   sleep_amt=$ORIGIN_SERVER_DURATION
   rm -f $TMP_DATA/$ORIGIN_SERVER_TCPDUMP
   touch $TMP_DATA/$ORIGIN_SERVER_TCPDUMP
-  tcpdump -n -i $my_interface port $ORIGIN_SERVER_PORT -w $TMP_DATA/$ORIGIN_SERVER_TCPDUMP &
+  tcpdump -n -i $my_interface port $server_port -w $TMP_DATA/$ORIGIN_SERVER_TCPDUMP &
 
 elif [[ $my_hostname == "receiver" ]]; then
   sleep_amt=$RECEIVER_DURATION

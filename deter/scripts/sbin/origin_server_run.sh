@@ -11,7 +11,7 @@ rm -f $TMP_DATA/$ORIGIN_SERVER_ERROR_LOGNAME
 touch $TMP_DATA/$ORIGIN_SERVER_ERROR_LOGNAME
 
 # Reset the previous keylog file to clean slate
-server_keylogfile="/users/amirf/$my_hostname.keylogfile.txt"
+server_keylogfile="$HOME/$my_hostname.keylogfile.txt"
 touch $server_keylogfile
 sudo chmod 666 $server_keylogfile
 sudo bash -c "echo -n > $server_keylogfile"
@@ -42,3 +42,6 @@ sudo rm /var/log/apache2/access.log
 # Copy server error log
 sudo cp /var/log/apache2/error.log $TMP_DATA/$ORIGIN_SERVER_ERROR_LOGNAME
 sudo rm /var/log/apache2/error.log
+
+# Copy server keylog file
+sudo cp $server_keylogfile $TMP_DATA
