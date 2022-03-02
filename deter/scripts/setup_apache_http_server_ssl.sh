@@ -21,7 +21,6 @@ sudo bash -c "cat $UTILS_HOME/mpm_event.conf > /etc/apache2/mods-available/mpm_e
 # Set up libsslkeylog.so to log SSL secret keys
 cd $WS_NOTES_HOME
 sudo apt install git make gcc libssl-dev
-cd wireshark-notes/src
 make -B
 sudo install libsslkeylog.so /usr/local/lib/
 
@@ -38,7 +37,7 @@ yes | sudo cp $UTILS_HOME/apache-selfsigned.key /etc/ssl/private/apache-selfsign
 yes | sudo cp $UTILS_HOME/apache-selfsigned.crt /etc/ssl/certs/apache-selfsigned.crt
 
 # Configure SSL to use key and certificate above
-ssl_site="/etc/sites-available/default-ssl.conf"
+ssl_site="/etc/apache2/sites-available/default-ssl.conf"
 sudo chmod 666 $ssl_site
 sudo bash -c "echo -n > $ssl_site"
 sudo bash -c "cat $UTILS_HOME/default-ssl.conf > $ssl_site"
