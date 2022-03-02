@@ -25,6 +25,7 @@ EXPDATA_HOME="$DETER_HOME/expdata"
 UTILS_HOME="$DETER_HOME/utils"
 TMP="/tmp"
 TMP_DATA="$TMP/data"
+WS_NOTES_HOME="$CF_HOME/../wireshark-notes"
 
 # Locations of specific files
 CF_PROXY_JAR="$CF_HOME/demo-apps/run/cf-proxy2-3.2.0.jar"
