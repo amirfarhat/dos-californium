@@ -27,6 +27,8 @@ sudo install libsslkeylog.so /usr/local/lib/
 # Add libsslkeylog.so to the apache HTTP server. Note that we need to add write permissions
 # to the service configuration overrides in order to add libsslkeylog.so
 override_file="/etc/systemd/system/apache2.service.d/override.conf"
+touch $override_file
+sudo bash -c "echo -n > $override_file"
 sudo chmod 666 $override_file
 echo "[Service]" >> $override_file
 echo "Environment=LD_PRELOAD=/usr/local/lib/libsslkeylog.so" >> $override_file
