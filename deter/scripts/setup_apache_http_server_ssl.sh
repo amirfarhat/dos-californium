@@ -24,16 +24,6 @@ sudo apt install git make gcc libssl-dev
 make -B
 sudo install libsslkeylog.so /usr/local/lib/
 
-# Add libsslkeylog.so to the apache HTTP server. Note that we need to add write permissions
-# to the service configuration overrides in order to add libsslkeylog.so
-override_file="/etc/systemd/system/apache2.service.d/override.conf"
-touch $override_file
-sudo bash -c "echo -n > $override_file"
-sudo chmod 666 $override_file
-echo "[Service]" >> $override_file
-echo "Environment=LD_PRELOAD=/usr/local/lib/libsslkeylog.so" >> $override_file
-echo -n "Environment=SSLKEYLOGFILE=/users/amirf/$my_hostname.keylogfile.txt" >> $override_file
-
 # Copy SSL private key and certificate to server
 yes | sudo cp $UTILS_HOME/apache-selfsigned.key /etc/ssl/private/apache-selfsigned.key
 yes | sudo cp $UTILS_HOME/apache-selfsigned.crt /etc/ssl/certs/apache-selfsigned.crt

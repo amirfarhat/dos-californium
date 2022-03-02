@@ -2,15 +2,32 @@
 
 source /proj/MIT-DoS/exp/coap-setup/deps/dos-californium/deter/scripts/config.sh
 
+my_hostname=$(hostname | awk '{ ORS="" } {split($0, a, "."); print a[1]}')
+
 # Clear server access and error logs
 rm -f $TMP_DATA/$ORIGIN_SERVER_ACCESS_LOGNAME
 touch $TMP_DATA/$ORIGIN_SERVER_ACCESS_LOGNAME
 rm -f $TMP_DATA/$ORIGIN_SERVER_ERROR_LOGNAME
 touch $TMP_DATA/$ORIGIN_SERVER_ERROR_LOGNAME
 
-# Clear server's service override configuration file
+# Reset the previous keylog file to clean slate
+server_keylogfile="/users/amirf/$my_hostname.keylogfile.txt"
+touch $server_keylogfile
+sudo chmod 666 $server_keylogfile
+sudo bash -c "echo -n > $server_keylogfile"
+
+# Add libsslkeylog.so to the apache HTTP server. Note that we clear this override file 
+# before adding the data. Further, we need to add write permissions to the service 
+# configuration overrides in order to add libsslkeylog.so
 override_file="/etc/systemd/system/apache2.service.d/override.conf"
 sudo bash -c "echo -n > $override_file"
+sudo chmod 666 $override_file
+echo "[Service]" >> $override_file
+echo "Environment=LD_PRELOAD=/usr/local/lib/libsslkeylog.so" >> $override_file
+echo -n "Environment=SSLKEYLOGFILE=$server_keylogfile" >> $override_file
+
+# Refresh systemctl daemon for apache2
+sudo systemctl daemon-reload
 
 # Start server async, sleep, then kill
 sudo /etc/init.d/apache2 start
