@@ -72,6 +72,7 @@ public class DoSProxyHttpClientResource extends ProxyCoapResource {
 		this.translator = translator != null ? translator : new Coap2HttpTranslator();
 		if (schemes == null || schemes.length == 0) {
 			this.schemes.add("http");
+			this.schemes.add("https");
 		} else {
 			for (String scheme : schemes) {
 				this.schemes.add(scheme);
@@ -161,6 +162,7 @@ public class DoSProxyHttpClientResource extends ProxyCoapResource {
 
 					@Override
 					public void failed(Exception ex) {
+						LOGGER.info("send error -- ex: {} msg {}", ex.getClass(), ex.getMessage());
 						if (ex instanceof SocketTimeoutException) {
 							exchange.sendResponse(new Response(ResponseCode.GATEWAY_TIMEOUT));
 						} else {

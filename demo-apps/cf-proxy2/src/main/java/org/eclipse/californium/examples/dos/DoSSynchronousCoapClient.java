@@ -24,6 +24,7 @@ import org.eclipse.californium.examples.util.SecureEndpointPool;
 import org.eclipse.californium.proxy2.config.DoSConfig;
 import org.eclipse.californium.proxy2.config.Proxy2Config;
 import org.eclipse.californium.scandium.DTLSConnector;
+import org.eclipse.californium.scandium.config.DtlsConfig;
 import org.eclipse.californium.scandium.config.DtlsConnectorConfig;
 
 public class DoSSynchronousCoapClient {
@@ -41,6 +42,7 @@ public class DoSSynchronousCoapClient {
 		TcpConfig.register();
 		Proxy2Config.register();
 		DoSConfig.register();
+		DtlsConfig.register();
 	}
 
 	private static void dPrint(Object obj) {
