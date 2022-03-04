@@ -1,7 +1,14 @@
 package org.eclipse.californium.proxy2.http;
 
+import java.security.KeyManagementException;
+import java.security.KeyStoreException;
+import java.security.NoSuchAlgorithmException;
+import java.security.cert.CertificateException;
+import java.security.cert.X509Certificate;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
+
+import javax.net.ssl.SSLContext;
 
 import org.apache.hc.client5.http.config.RequestConfig;
 import org.apache.hc.client5.http.impl.DefaultConnectionKeepAliveStrategy;
@@ -13,6 +20,7 @@ import org.apache.hc.client5.http.impl.nio.PoolingAsyncClientConnectionManagerBu
 import org.apache.hc.core5.http.ConnectionReuseStrategy;
 import org.apache.hc.core5.http.HttpRequest;
 import org.apache.hc.core5.http.HttpResponse;
+import org.apache.hc.core5.http.nio.ssl.BasicClientTlsStrategy;
 import org.apache.hc.core5.http.protocol.HttpContext;
 import org.apache.hc.core5.http.protocol.RequestConnControl;
 import org.apache.hc.core5.http.protocol.RequestDate;
@@ -23,9 +31,12 @@ import org.apache.hc.core5.http2.HttpVersionPolicy;
 import org.apache.hc.core5.pool.PoolConcurrencyPolicy;
 import org.apache.hc.core5.pool.PoolReusePolicy;
 import org.apache.hc.core5.reactor.IOReactorConfig;
+import org.apache.hc.core5.ssl.SSLContexts;
+import org.apache.hc.core5.ssl.TrustStrategy;
 import org.apache.hc.core5.util.TimeValue;
 import org.apache.hc.core5.util.Timeout;
 import org.eclipse.californium.elements.config.Configuration;
+import org.eclipse.californium.elements.util.SslContextUtil;
 import org.eclipse.californium.proxy2.config.DoSConfig;
 import org.eclipse.californium.proxy2.config.Proxy2Config;
 
@@ -171,6 +182,23 @@ public class DoSHttpClientFactory {
         ? null
         : TimeValue.ofSeconds(config.get(DoSConfig.KEEP_ALIVE_DURATION, TimeUnit.SECONDS));
 
+    // Trust everyone
+    SSLContext sslContext;
+    try {
+      sslContext = SSLContexts
+      .custom()
+      .setProtocol("TLSv1.2")
+      .loadTrustMaterial(new TrustStrategy() {
+        @Override
+        public boolean isTrusted(X509Certificate[] chain, String authType) throws CertificateException {
+          return true;
+        }
+      })
+      .build();
+    } catch (Exception e) {
+      throw new RuntimeException(e);
+    }
+
     return PoolingAsyncClientConnectionManagerBuilder
       .create()
       .setConnectionTimeToLive(keepAliveDuration)
@@ -180,7 +208,7 @@ public class DoSHttpClientFactory {
       .setMaxConnPerRoute(numProxyConnections)
       .setPoolConcurrencyPolicy(PoolConcurrencyPolicy.STRICT)
       // setSchemePortResolver(SchemePortResolver schemePortResolver)
-      // setTlsStrategy(org.apache.hc.core5.http.nio.ssl.TlsStrategy tlsStrategy)
+      .setTlsStrategy(new BasicClientTlsStrategy(sslContext))
       // setValidateAfterInactivity(org.apache.hc.core5.util.TimeValue validateAfterInactivity) <-- default is 0ms
       // useSystemProperties()
       .build();
