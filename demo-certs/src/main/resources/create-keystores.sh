@@ -182,7 +182,7 @@ create_keys() {
         -validity $VALIDITY -keypass $KEY_STORE_PWD -keystore $KEY_STORE -storepass $KEY_STORE_PWD -storetype $DEFAULT_STORE_TYPE
    keytool -keystore $KEY_STORE -storepass $KEY_STORE_PWD -certreq -alias server | \
       keytool -keystore $TRUST_STORE -storepass $TRUST_STORE_PWD -alias ca -gencert -ext KU=dig -ext \
-      'san=dns:my.test.server,dns:californium.eclipseprojects.io,ip:35.185.40.182,dns:localhost,ip:127.0.0.1,ip:::1' \
+      'san=dns:my.test.server,dns:californium.eclipseprojects.io,ip:35.185.40.182,dns:localhost,ip:127.0.0.1,ip:10.1.1.1,ip:::1' \
       -validity $VALIDITY -sigalg SHA256withECDSA -rfc > $SERVER_CER
    keytool -alias server -importcert -keystore $KEY_STORE -storepass $KEY_STORE_PWD -trustcacerts -file $SERVER_CER -storetype $DEFAULT_STORE_TYPE
 
@@ -191,7 +191,7 @@ create_keys() {
         -validity $VALIDITY -keypass $KEY_STORE_PWD -keystore $KEY_STORE -storepass $KEY_STORE_PWD -storetype $DEFAULT_STORE_TYPE
    keytool -keystore $KEY_STORE -storepass $KEY_STORE_PWD -certreq -alias serverrsa | \
       keytool -keystore $TRUST_STORE -storepass $TRUST_STORE_PWD -alias ca -gencert -ext KU=dig \
-      -ext 'san=dns:localhost,ip:127.0.0.1,ip:::1,dns:californium.eclipseprojects.io,ip:35.185.40.182' \
+      -ext 'san=dns:localhost,ip:127.0.0.1,ip:10.1.1.1,ip:::1,dns:californium.eclipseprojects.io,ip:35.185.40.182' \
       -validity $VALIDITY -sigalg SHA256withECDSA -rfc > $SERVER_RSA_CER
    keytool -alias serverrsa -importcert -keystore $KEY_STORE -storepass $KEY_STORE_PWD -trustcacerts -file $SERVER_RSA_CER -storetype $DEFAULT_STORE_TYPE
 
@@ -207,7 +207,7 @@ create_keys() {
         -validity $VALIDITY -keypass $KEY_STORE_PWD -keystore $KEY_STORE -storepass $KEY_STORE_PWD
    keytool -keystore $KEY_STORE -storepass $KEY_STORE_PWD -certreq -alias serverlarge | \
       keytool -keystore $TRUST_STORE -storepass $TRUST_STORE_PWD -alias ca2 -gencert -ext KU=dig -ext \
-      'san=ip:127.0.0.1,ip:::1' -validity $VALIDITY -sigalg SHA256withECDSA -rfc > $SERVER_LARGE_CER
+      'san=ip:127.0.0.1,ip:10.1.1.1,ip:::1' -validity $VALIDITY -sigalg SHA256withECDSA -rfc > $SERVER_LARGE_CER
    keytool -alias serverlarge -importcert -keystore $KEY_STORE -storepass $KEY_STORE_PWD -trustcacerts -file $SERVER_LARGE_CER
 
    echo "creating CA RSA key and certificate..."
@@ -222,7 +222,7 @@ create_keys() {
         -validity $VALIDITY -keypass $KEY_STORE_PWD -keystore $KEY_STORE -storepass $KEY_STORE_PWD
    keytool -keystore $KEY_STORE -storepass $KEY_STORE_PWD -certreq -alias servercarsa | \
       keytool -keystore $TRUST_STORE -storepass $TRUST_STORE_PWD -alias carsa -gencert -ext KU=dig -ext \
-      'san=dns:my.test.server2,dns:localhost,ip:127.0.0.1,ip:::1' -validity $VALIDITY -sigalg SHA256withRSA -rfc > $SERVER_CA_RSA_CER
+      'san=dns:my.test.server2,dns:localhost,ip:127.0.0.1,ip:10.1.1.1,ip:::1' -validity $VALIDITY -sigalg SHA256withRSA -rfc > $SERVER_CA_RSA_CER
    keytool -alias servercarsa -importcert -keystore $KEY_STORE -storepass $KEY_STORE_PWD -trustcacerts -file $SERVER_CA_RSA_CER
 
    echo "creating client key and certificate..."
@@ -294,7 +294,7 @@ create_keys() {
            -validity $VALIDITY -keypass $KEY_STORE_PWD -keystore $EDDSA_KEY_STORE -storepass $KEY_STORE_PWD -storetype $DEFAULT_STORE_TYPE
       keytool -keystore $EDDSA_KEY_STORE -storepass $KEY_STORE_PWD -certreq -alias servereddsa | \
            keytool -keystore $EDDSA_TRUST_STORE -storepass $TRUST_STORE_PWD -alias caeddsa -gencert -ext KU=dig \
-           -ext 'san=dns:localhost,ip:127.0.0.1,ip:::1,dns:californium.eclipseprojects.io,ip:35.185.40.182' \
+           -ext 'san=dns:localhost,ip:127.0.0.1,ip:10.1.1.1,ip:::1,dns:californium.eclipseprojects.io,ip:35.185.40.182' \
            -validity $VALIDITY -sigalg Ed25519 -rfc > $SERVER_EDDSA_CER
       keytool -alias servereddsa -importcert -keystore $EDDSA_KEY_STORE -storepass $KEY_STORE_PWD -trustcacerts \
            -file $SERVER_EDDSA_CER -storetype $DEFAULT_STORE_TYPE
