@@ -190,7 +190,7 @@ create_keys() {
    keytool -genkeypair -alias serverrsa -keyalg RSA -dname 'C=CA,L=Ottawa,O=Eclipse IoT,OU=Californium,CN=cf-server-rsa' \
         -validity $VALIDITY -keypass $KEY_STORE_PWD -keystore $KEY_STORE -storepass $KEY_STORE_PWD -storetype $DEFAULT_STORE_TYPE
    keytool -keystore $KEY_STORE -storepass $KEY_STORE_PWD -certreq -alias serverrsa | \
-      keytool -keystore $TRUST_STORE -storepass $TRUST_STORE_PWD -alias ca -gencert -ext KU=dig \
+      keytool -keystore $TRUST_STORE -storepass $TRUST_STORE_PWD -alias ca -gencert -rfc -ext KU=dig \
       -ext 'san=dns:localhost,ip:127.0.0.1,ip:10.1.1.1,ip:::1,dns:californium.eclipseprojects.io,ip:35.185.40.182' \
       -validity $VALIDITY -sigalg SHA256withECDSA -rfc > $SERVER_RSA_CER
    keytool -alias serverrsa -importcert -keystore $KEY_STORE -storepass $KEY_STORE_PWD -trustcacerts -file $SERVER_RSA_CER -storetype $DEFAULT_STORE_TYPE
