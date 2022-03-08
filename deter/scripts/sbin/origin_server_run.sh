@@ -12,16 +12,19 @@ touch $TMP_DATA/$ORIGIN_SERVER_ERROR_LOGNAME
 
 # Reset the previous keylog file to clean slate
 server_keylogfile="$HOME/$my_hostname.keylogfile.txt"
-touch $server_keylogfile
+sudo touch $server_keylogfile
 sudo chmod 666 $server_keylogfile
 sudo bash -c "echo -n > $server_keylogfile"
 
 # Add libsslkeylog.so to the apache HTTP server. Note that we clear this override file 
 # before adding the data. Further, we need to add write permissions to the service 
 # configuration overrides in order to add libsslkeylog.so
-override_file="/etc/systemd/system/apache2.service.d/override.conf"
-sudo bash -c "echo -n > $override_file"
+apache_serviced_home="/etc/systemd/system/apache2.service.d"
+sudo mkdir -p $apache_serviced_home
+override_file="$apache_serviced_home/override.conf"
+sudo touch $override_file
 sudo chmod 666 $override_file
+sudo bash -c "echo -n > $override_file"
 echo "[Service]" >> $override_file
 echo "Environment=LD_PRELOAD=/usr/local/lib/libsslkeylog.so" >> $override_file
 echo -n "Environment=SSLKEYLOGFILE=$server_keylogfile" >> $override_file
