@@ -382,17 +382,17 @@ export_pem() {
       openssl pkey -in $ED448_PRIVATE_KEY_PEM -pubout -out $ED448_PUBLIC_KEY_PEM
      
       # GnuTLS interoperability tests 
-      docker pull ubuntu:trusty
+      sudo docker pull ubuntu:trusty
       if [ $? -eq 0 ] ; then   
          echo "openssl: (docker ubuntu.trusty)"
-         docker run ubuntu:trusty /usr/bin/openssl version
+         sudo docker run ubuntu:trusty /usr/bin/openssl version
          DESTINATION_DIR=../../../../californium-tests/californium-interoperability-tests
          echo "exporting private keys into GnuTLS PEM format"
-         openssl pkey -in $CLIENT_KEY_STORE_PEM | docker run -i ubuntu:trusty /usr/bin/openssl pkey > $CLIENT_PRIVATE_KEY_PEM
-         openssl pkey -in $CLIENT_RSA_KEY_STORE_PEM | docker run -i ubuntu:trusty /usr/bin/openssl pkey > $CLIENT_RSA_PRIVATE_KEY_PEM
-         openssl pkey -in $SERVER_KEY_STORE_PEM | docker run -i ubuntu:trusty /usr/bin/openssl pkey > $SERVER_PRIVATE_KEY_PEM
-         openssl pkey -in $SERVER_RSA_KEY_STORE_PEM | docker run -i ubuntu:trusty /usr/bin/openssl pkey > $SERVER_RSA_PRIVATE_KEY_PEM
-         openssl pkey -in $SERVER_CA_RSA_KEY_STORE_PEM | docker run -i ubuntu:trusty /usr/bin/openssl pkey > $SERVER_CA_RSA_PRIVATE_KEY_PEM
+         openssl pkey -in $CLIENT_KEY_STORE_PEM | sudo docker run -i ubuntu:trusty /usr/bin/openssl pkey > $CLIENT_PRIVATE_KEY_PEM
+         openssl pkey -in $CLIENT_RSA_KEY_STORE_PEM | sudo docker run -i ubuntu:trusty /usr/bin/openssl pkey > $CLIENT_RSA_PRIVATE_KEY_PEM
+         openssl pkey -in $SERVER_KEY_STORE_PEM | sudo docker run -i ubuntu:trusty /usr/bin/openssl pkey > $SERVER_PRIVATE_KEY_PEM
+         openssl pkey -in $SERVER_RSA_KEY_STORE_PEM | sudo docker run -i ubuntu:trusty /usr/bin/openssl pkey > $SERVER_RSA_PRIVATE_KEY_PEM
+         openssl pkey -in $SERVER_CA_RSA_KEY_STORE_PEM | sudo docker run -i ubuntu:trusty /usr/bin/openssl pkey > $SERVER_CA_RSA_PRIVATE_KEY_PEM
       else 
          echo "Missing docker, no private keys for GnuTLS interoperability tests are exported."
       fi
