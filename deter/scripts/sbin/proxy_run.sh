@@ -16,14 +16,8 @@ sudo rm -f $TMP_DATA/$FLAMEGRAPH_NAME
 # Create log file
 sudo touch $TMP_DATA/$PROXY_LOGNAME
 
-# Config arguments for proxy
-proxy_logging="nothanks"
+# Proxy arguments to JVM
 proxy_args="-Xmx${PROXY_HEAP_SIZE_MB}m"
-
-if [[ $DO_PROXY_LOGGING -eq 1 ]]; then
-  proxy_logging="log"
-fi
-
 if [[ $DO_JAVA_PROFILING -eq 1 ]]; then
   # Set kernel parameters to enable perf profiling
   sudo sysctl -w kernel.perf_event_paranoid=1
@@ -39,8 +33,20 @@ else
   proxy_class="DoSOptimizedForwardingProxy"
 fi
 
+# If we are running the proxy's egress with HTTPS, we must enable a java agent
+# to log the TLS secrets for later decryption
+keylog_javaagent=""
+if [[ $RUN_PROXY_WITH_HTTPS -eq 1 ]]; then
+  # Set up proxy keylogfile java agent for TLS
+  proxy_keylogfile="$TMP_DATA/$PROXY_KEYLOGFILE_NAME"
+  sudo touch $proxy_keylogfile
+  sudo chmod 666 $proxy_keylogfile
+  sudo bash -c "echo -n > $proxy_keylogfile"
+  keylog_javaagent="-javaagent:$JSSL_KEYLOG_JAR==$proxy_keylogfile"
+fi
+
 # Run the proxy with proxy log
-((sudo java $proxy_args -jar $CF_PROXY_JAR $proxy_class) 2>&1 > $TMP_DATA/$PROXY_LOGNAME) &
+((sudo java $keylog_javaagent $proxy_args -jar $CF_PROXY_JAR $proxy_class) 2>&1 > $TMP_DATA/$PROXY_LOGNAME) &
 
 # Wait until proxy pid shows up
 # TODO temp variable while this until file shows up lsof -p PID | grep java_pid

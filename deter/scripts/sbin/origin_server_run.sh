@@ -11,7 +11,7 @@ rm -f $TMP_DATA/$ORIGIN_SERVER_ERROR_LOGNAME
 touch $TMP_DATA/$ORIGIN_SERVER_ERROR_LOGNAME
 
 # Reset the previous keylog file to clean slate
-server_keylogfile="$HOME/$my_hostname.keylogfile.txt"
+server_keylogfile="$TMP_DATA/$ORIGIN_SERVER_KEYLOGFILE_NAME"
 sudo touch $server_keylogfile
 sudo chmod 666 $server_keylogfile
 sudo bash -c "echo -n > $server_keylogfile"

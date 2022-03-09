@@ -29,6 +29,7 @@ WS_NOTES_HOME="$CF_HOME/../wireshark-notes/src"
 
 # Locations of specific files
 CF_PROXY_JAR="$CF_HOME/demo-apps/run/cf-proxy2-3.2.0.jar"
+JSSL_KEYLOG_JAR="$CF_HOME/../jSSLKeyLog.jar"
 PROPERTIES_FILE_NAME="DoSProxy.properties"
 DTLS_PROXY_PROPERTIES_FILE_NAME="DoSDTLSProxy.properties"
 CLIENT_PROPERTIES_FILE_NAME="DoSClient.properties"
@@ -41,7 +42,6 @@ RUN_USER="amirf"
 
 # Binary toggles
 TCPDUMP=1
-DO_PROXY_LOGGING=0
 RUN_PROXY_WITH_DTLS=0
 RUN_PROXY_WITH_HTTPS=0
 MONITOR_PROXY_CPU=1
@@ -90,6 +90,7 @@ ORIGIN_SERVER_CPU_FILENAME="server.cpu.metric.out"
 ORIGIN_SERVER_MEMORY_FILENAME="server.memory.metric.out"
 ORIGIN_SERVER_PORT=80
 ORIGIN_SERVER_HTTPS_PORT=443
+ORIGIN_SERVER_KEYLOGFILE_NAME="originserver.keylogfile.txt"
 
 # Receiver
 RECEIVER_NAME="receiver.coap-setup.MIT-DoS.isi.deterlab.net"
@@ -112,6 +113,7 @@ PROXY_CPU_FILENAME="proxy.cpu.metric.out"
 PROXY_MEMORY_FILENAME="proxy.memory.metric.out"
 PROXY_COAP_PORT="5683"
 PROXY_DTLS_PORT="5684"
+PROXY_KEYLOGFILE_NAME="proxy.keylogfile.txt"
 
 # Proxy config found in properties file
 NUM_PROXY_CONNECTIONS="50"
