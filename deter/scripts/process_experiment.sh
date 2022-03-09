@@ -107,7 +107,7 @@ for D in $exp_dir/*; do
       if [[ ! -f $processed_connections_file ]]; then
         echo "Processing tcp in $bd/`basename $dump_file`..."
         # Compress key TCP connections events
-        (./process_connections.sh $dump_file $processed_connections_file) &
+        (./process_connections.sh $dump_file $processed_connections_file $keylog_file) &
         pids+=($!)
        fi
     done
@@ -173,7 +173,9 @@ function log_tcpdump_stats() {
   echo "    $(grep -Eic "\[rst\]" $connections_file) RSTs, $(grep -Eic "\[rst, ack\]" $connections_file) RST-ACKs"
   echo "    $(grep -Eic "\[fin\]" $connections_file) FINs, $(grep -Eic "\[fin, ack\]" $connections_file) FIN-ACKs"
   echo "    $(grep -Eic "\[ack\]" $connections_file) ACKs"
-  echo "    $(grep -Eic "\[application data\]" $connections_file) Application Data Messages"
+  echo "    $(grep -Ec "Application Data" $connections_file) Application Data Messages"
+  echo "    $(grep -Ec "TLS" $connections_file) TLS Messages"
+  echo "    $(grep -Ec "DTLS" $connections_file) DTLS Messages"
 
   if [[ -f $httpoutfile ]]; then
     echo "    HTTP response code frequencies $(cat $httpoutfile)"
