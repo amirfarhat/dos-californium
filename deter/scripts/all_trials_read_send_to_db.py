@@ -125,7 +125,8 @@ def insert_experiment_table(cfg):
     %s,
     %s, %s, %s, %s, %s, %s,
     %s,
-    %s, %s, %s, %s, %s, %s
+    %s, %s, %s, %s, %s, %s,
+    %s, %s
   );
   """
   sql_args = (
@@ -134,7 +135,8 @@ def insert_experiment_table(cfg):
     cfg["num_trials"],
     cfg["origin_server_duration"], cfg["attacker_duration"], cfg["receiver_duration"], cfg["proxy_duration"], cfg["client_duration"], cfg["attacker_start_lag_duration"],
     cfg["topology_name"],
-    cfg["num_proxy_connections"], cfg["request_timeout"], cfg["max_retries"], cfg["keep_alive_duration"], cfg["request_retry_interval"], cfg["reuse_connections"]
+    cfg["num_proxy_connections"], cfg["request_timeout"], cfg["max_retries"], cfg["keep_alive_duration"], cfg["request_retry_interval"], cfg["reuse_connections"],
+    cfg["run_proxy_with_dtls"], cfg["run_proxy_with_https"]
   )
   cur.execute(sql, sql_args)
   con.commit()

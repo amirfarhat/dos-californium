@@ -5,6 +5,7 @@ source /proj/MIT-DoS/exp/coap-setup/deps/dos-californium/deter/scripts/config.sh
 my_hostname=$(hostname | awk '{ ORS="" } {split($0, a, "."); print a[1]}')
 
 # Clear server access and error logs
+sudo mkdir -p $TMP_DATA
 rm -f $TMP_DATA/$ORIGIN_SERVER_ACCESS_LOGNAME
 touch $TMP_DATA/$ORIGIN_SERVER_ACCESS_LOGNAME
 rm -f $TMP_DATA/$ORIGIN_SERVER_ERROR_LOGNAME
@@ -16,18 +17,9 @@ sudo touch $server_keylogfile
 sudo chmod 666 $server_keylogfile
 sudo bash -c "echo -n > $server_keylogfile"
 
-# Add libsslkeylog.so to the apache HTTP server. Note that we clear this override file 
-# before adding the data. Further, we need to add write permissions to the service 
-# configuration overrides in order to add libsslkeylog.so
-apache_serviced_home="/etc/systemd/system/apache2.service.d"
-sudo mkdir -p $apache_serviced_home
-override_file="$apache_serviced_home/override.conf"
-sudo touch $override_file
-sudo chmod 666 $override_file
-sudo bash -c "echo -n > $override_file"
-echo "[Service]" >> $override_file
-echo "Environment=LD_PRELOAD=/usr/local/lib/libsslkeylog.so" >> $override_file
-echo -n "Environment=SSLKEYLOGFILE=$server_keylogfile" >> $override_file
+# Add libsslkeylog.so to the apache HTTP server. systemd uses editor for overrides, so this is a
+# hack to trick the systemd editor to accept input from stdin: https://bbs.archlinux.org/viewtopic.php?id=195782
+echo -e "[Service]\nEnvironment=LD_PRELOAD=/usr/local/lib/libsslkeylog.so\nEnvironment=SSLKEYLOGFILE=$server_keylogfile" | sudo SYSTEMD_EDITOR=tee systemctl edit apache2
 
 # Refresh systemctl daemon for apache2
 sudo systemctl daemon-reload

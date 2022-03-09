@@ -19,7 +19,23 @@ function log () {
   fi
 }
 
+my_hostname=$(hostname | awk '{ ORS="" } {split($0, a, "."); print a[1]}')
 sudo mkdir -p $TMP_DATA
+
+# Create empty server ops log
+OPLOG="$TMP_DATA/${my_hostname}_ops.log"
+sudo touch $OPLOG
+sudo rm $OPLOG
+sudo touch $OPLOG
+
+# Create server ops log configuration
+OPLOG_CONF="$HOME/$my_hostname.oplog.conf"
+sudo touch $OPLOG_CONF
+sudo rm $OPLOG_CONF
+sudo touch $OPLOG_CONF
+echo "logfile $OPLOG"  >> $OPLOG_CONF
+echo "logfile flush 1" >> $OPLOG_CONF
+echo "log on"          >> $OPLOG_CONF
 
 if [[ $TCPDUMP -eq 1 ]]; then
   log "Running origin_server tcpdump...\n"
@@ -28,13 +44,13 @@ fi
 
 if [[ $MONITOR_ORIGIN_SERVER_CPU -eq 1 ]]; then
   log "Running origin server CPU monitor...\n"
-  sudo screen -c $UTILS_HOME/oplog.conf -d -m -L sudo $BIN_HOME/monitor_cpu.sh $ORIGIN_SERVER_DURATION $CPU_SAMPLING_INTERVAL $TMP_DATA/$ORIGIN_SERVER_CPU_FILENAME
+  sudo screen -c $OPLOG_CONF -d -m -L sudo $BIN_HOME/monitor_cpu.sh $ORIGIN_SERVER_DURATION $CPU_SAMPLING_INTERVAL $TMP_DATA/$ORIGIN_SERVER_CPU_FILENAME
 fi
 
 if [[ $MONITOR_ORIGIN_SERVER_MEMORY -eq 1 ]]; then
   log "Running origin server memory monitor...\n"
-  sudo screen -c $UTILS_HOME/oplog.conf -d -m -L sudo $BIN_HOME/monitor_memory.sh $ORIGIN_SERVER_DURATION $TMP_DATA/$ORIGIN_SERVER_MEMORY_FILENAME
+  sudo screen -c $OPLOG_CONF -d -m -L sudo $BIN_HOME/monitor_memory.sh $ORIGIN_SERVER_DURATION $TMP_DATA/$ORIGIN_SERVER_MEMORY_FILENAME
 fi
 
 log "Running origin server...\n"
-screen -d -m sudo $BIN_HOME/origin_server_run.sh
+sudo screen -c $OPLOG_CONF -d -m sudo $BIN_HOME/origin_server_run.sh

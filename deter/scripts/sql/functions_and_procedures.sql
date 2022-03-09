@@ -21,14 +21,17 @@ CREATE OR REPLACE FUNCTION insert_into_experiment(
 	max_retries int,
 	keep_alive_duration text,
 	request_retry_interval text,
-	reuse_connections boolean
+	reuse_connections boolean,
+	run_proxy_with_dtls boolean,
+	run_proxy_with_https boolean
 ) RETURNS VOID AS $$
 
 INSERT INTO experiment 
 VALUES (exp_name, attacker_rate, server_connections, max_keep_alive_requests, 
 			  num_clients, num_trials, origin_server_duration, attacker_duration, 
 				receiver_duration, proxy_duration, client_duration, attacker_start_lag_duration, topology, 
-				num_proxy_connections, request_timeout, max_retries, keep_alive_duration, request_retry_interval, reuse_connections)
+				num_proxy_connections, request_timeout, max_retries, keep_alive_duration, request_retry_interval, reuse_connections,
+				run_proxy_with_dtls, run_proxy_with_https)
 ON CONFLICT 
 DO NOTHING
 ;

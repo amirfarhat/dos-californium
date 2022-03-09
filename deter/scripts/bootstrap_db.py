@@ -41,7 +41,9 @@ def sql_create_tables():
       "max_retries" int NOT NULL,
       "keep_alive_duration" text NOT NULL,
       "request_retry_interval" text NOT NULL,
-      "reuse_connections" boolean NOT NULL
+      "reuse_connections" boolean NOT NULL,
+      "run_proxy_with_dtls" boolean NOT NULL,
+      "run_proxy_with_https" boolean NOT NULL
     );
 
     CREATE TABLE IF NOT EXISTS "node" (
