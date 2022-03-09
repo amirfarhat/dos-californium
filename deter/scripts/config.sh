@@ -138,7 +138,7 @@ for ((i=1; i<=$NUM_CLIENTS; i++)); do
   CLIENTS+=("client${i}${BASE_CLIENT_NAME_SUFFIX}");
 done
 
-# CLient config found in properties files
+# Client config found in properties files
 ACK_TIMEOUT="2[s]"
 ACK_INIT_RANDOM="1.5"
 ACK_TIMEOUT_SCALE="2.0"

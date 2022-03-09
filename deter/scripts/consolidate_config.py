@@ -4,6 +4,8 @@ import sys
 import json
 import argparse
 
+from collections import defaultdict
+
 from pprint import pprint
 
 def parse_args():
@@ -70,26 +72,38 @@ def parse_expinfo(config_dict):
           config_dict["hosts"][host]["operating_system"] = host_os.lower()
 
 def parse_config(config_dict):
-  config_dict["num_clients"] = os.environ["NUM_CLIENTS"]
-  config_dict["topology_name"] = os.environ["TOPOLOGY_NAME"]
-  config_dict["pause_time"] = os.environ["PAUSE_TIME"]
-  config_dict["wait_time"] = os.environ["WAIT_TIME"]
-  config_dict["server_connections"] = os.environ["SERVER_CONNECTIONS"]
-  config_dict["proxy_heap_size_mb"] = os.environ["PROXY_HEAP_SIZE_MB"]
-  config_dict["origin_server_duration"] = os.environ["ORIGIN_SERVER_DURATION"]
-  config_dict["attacker_duration"] = os.environ["ATTACKER_DURATION"]
-  config_dict["receiver_duration"] = os.environ["RECEIVER_DURATION"]
-  config_dict["proxy_duration"] = os.environ["PROXY_DURATION"]
-  config_dict["client_duration"] = os.environ["CLIENT_DURATION"]
-  config_dict["attacker_start_lag_duration"] = os.environ["ATTACKER_START_LAG_DURATION"]
-  config_dict["max_keep_alive_requests"] = os.environ.get("MAX_KEEP_ALIVE_REQUESTS", "100") # 100 for backwards compatibility
+  # Collect config variable names from the config script
+  vars = set()
+  with open(args.config, "r") as f:
+    for L in f.readlines():
+      L = L.rstrip("\n")
+      if L.count("=") == 1:
+        parts = L.split("=")
+        variable = parts[0]
+        if variable.startswith(" ") or variable.islower():
+          continue
+        vars.add(variable)
+  
+  # Define value fetcher for config variables exposed to the environment
+  def get_variable_value(varname):
+    try:
+      value = os.environ[varname.upper()]
+    except KeyError:
+      return ""
+    
+    idx = value.find("[")
+    if idx > -1:
+      value = value[:idx]
+    
+    return value
+    
+  # Construct dispatch table which returns a fetcher/parser for each configuration variable
+  dispatch_table = defaultdict(lambda : get_variable_value)
+  dispatch_table["max_keep_alive_requests"] = lambda _: os.environ.get("MAX_KEEP_ALIVE_REQUESTS", "100") # 100 for backwards compatibility
 
-  config_dict["num_proxy_connections"] = os.environ["NUM_PROXY_CONNECTIONS"]
-  config_dict["request_timeout"] = os.environ["REQUEST_TIMEOUT"]
-  config_dict["max_retries"] = os.environ["MAX_RETRIES"]
-  config_dict["keep_alive_duration"] = os.environ["KEEP_ALIVE_DURATION"]
-  config_dict["request_retry_interval"] = os.environ["REQUEST_RETRY_INTERVAL"]
-  config_dict["reuse_connections"] = os.environ["REUSE_CONNECTIONS"]
+  # Then populate our config dict using the dispatch table
+  for varname in vars:
+    config_dict[varname.lower()] = dispatch_table[varname](varname)
 
 def main():
   config_dict = dict()

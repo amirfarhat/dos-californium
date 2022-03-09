@@ -64,6 +64,14 @@ python3 $SCRIPTS_DIR/consolidate_config.py -n $proper_experiment_name \
                                            -r $num_trials \
                                            -o $joined_config
 
+# Determine if we run the experiment using HTTPS
+run_proxy_with_https=$(cat $joined_config | jq -r '.run_proxy_with_https')
+origin_server_keylogfile_name=$(cat $joined_config | jq -r '.origin_server_keylogfile_name')
+proxy_keylogfile_name=$(cat $joined_config | jq -r '.proxy_keylogfile_name')
+dummy_keylogfile="$HOME/dummy_keylogfile.txt"
+sudo touch $dummy_keylogfile
+sudo chmod 666 $dummy_keylogfile
+
 # | Step 2 | Parse (if not exists) tcpdumps
 cd $SCRIPTS_DIR
 pids=()
@@ -72,12 +80,27 @@ for D in $exp_dir/*; do
   if [[ -d $D && $bd != "metadata" ]]; then
     # Process (if not already processed) the tcpdumps
     for dump_file in $D/*_dump.pcap; do
+      basename_dump=$(basename $dump_file)
       processed_dump_file="$dump_file.out"
       processed_connections_file="$dump_file.connections.out"
       if [[ ! -f $processed_dump_file ]]; then
         echo "Processing coap & http in $bd/`basename $dump_file`..."
+
+        # Fetch corresponding keylogfile if the experiment uses TLS
+        keylog_file=$dummy_keylogfile
+        if [[ $run_proxy_with_https -eq 1 ]]; then
+          echo $basename_dump
+          if [[ $basename_dump == "proxy_dump.pcap" ]]; then
+            keylog_file=$D/$proxy_keylogfile_name
+          elif [[ $basename_dump == "server_dump.pcap" ]]; then
+            keylog_file=$D/$origin_server_keylogfile_name
+          else
+            (:)
+          fi
+        fi
+
         # Transform the tcpdump fully for coap & http
-        (./process_tcpdump.sh $dump_file $processed_dump_file) &
+        (./process_tcpdump.sh $dump_file $processed_dump_file $keylog_file) &
         pids+=($!)
       fi
 
@@ -150,6 +173,7 @@ function log_tcpdump_stats() {
   echo "    $(grep -Eic "\[rst\]" $connections_file) RSTs, $(grep -Eic "\[rst, ack\]" $connections_file) RST-ACKs"
   echo "    $(grep -Eic "\[fin\]" $connections_file) FINs, $(grep -Eic "\[fin, ack\]" $connections_file) FIN-ACKs"
   echo "    $(grep -Eic "\[ack\]" $connections_file) ACKs"
+  echo "    $(grep -Eic "\[application data\]" $connections_file) Application Data Messages"
 
   if [[ -f $httpoutfile ]]; then
     echo "    HTTP response code frequencies $(cat $httpoutfile)"

@@ -9,7 +9,7 @@ if [[ -z "$input_file" ]] || [[ -z "$output_file" ]]; then
   exit 1
 fi
 
-filter="tcp && !http"
+filter="tls || dtls || (tcp && !http)"
 
 # Run tshark in the backend to handle parsing and 
 # high-level protocol filtering
