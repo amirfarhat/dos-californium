@@ -1,18 +1,15 @@
 package org.eclipse.californium.examples.dos;
 
-import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
 import java.security.GeneralSecurityException;
 import java.sql.Timestamp;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.eclipse.californium.core.CoapClient;
 import org.eclipse.californium.core.CoapResponse;
 import org.eclipse.californium.core.coap.Request;
 import org.eclipse.californium.core.config.CoapConfig;
-import org.eclipse.californium.core.network.CoapEndpoint;
 import org.eclipse.californium.core.network.RandomTokenGenerator;
 import org.eclipse.californium.core.network.TokenGenerator.Scope;
 import org.eclipse.californium.core.network.stack.ReliabilityLayerParameters;
@@ -20,18 +17,14 @@ import org.eclipse.californium.elements.config.Configuration;
 import org.eclipse.californium.elements.config.TcpConfig;
 import org.eclipse.californium.elements.config.UdpConfig;
 import org.eclipse.californium.elements.exception.ConnectorException;
-import org.eclipse.californium.examples.util.SecureEndpointPool;
 import org.eclipse.californium.proxy2.config.DoSConfig;
 import org.eclipse.californium.proxy2.config.Proxy2Config;
-import org.eclipse.californium.scandium.DTLSConnector;
 import org.eclipse.californium.scandium.config.DtlsConfig;
-import org.eclipse.californium.scandium.config.DtlsConnectorConfig;
 
 public class DoSSynchronousCoapClient {
 
 	private static final File CLIENT_TIMEOUT_CONFIG_FILE = new File("DoSClient.properties");
 
-	private static final int MAX_MID = 64999;
 	private static final boolean VERBOSE = true;
 
   private static final AtomicInteger reqCount = new AtomicInteger(0);
@@ -65,31 +58,6 @@ public class DoSSynchronousCoapClient {
 		} catch (ConnectorException | IOException e) {
 			throw new RuntimeException(e);
 		}
-	}
-
-	private static CoapClient makeCoapClient(boolean schemeIsCoap, Configuration configuration) throws IOException, GeneralSecurityException {
-		CoapClient client = new CoapClient();
-		if (schemeIsCoap) {
-			System.out.println("Make CoAP client");
-		} else {
-			System.out.println("Make CoAPs client");
-
-			// Configure DTLS connector
-			final DtlsConnectorConfig dtlsConnectorConfig = SecureEndpointPool
-      	.setupClient(configuration)
-      	.build();
-			final DTLSConnector dtlsConnector = new DTLSConnector(dtlsConnectorConfig);
-
-			// Configure coap endpoint
-			final CoapEndpoint coapEndpoint = new CoapEndpoint.Builder()
-					.setConfiguration(configuration)
-					.setConnector(dtlsConnector)
-					.build();
-					
-			client.setEndpoint(coapEndpoint);
-		}
-
-		return client;
 	}
 
   public static void main(String[] args) throws IOException, GeneralSecurityException {
@@ -126,7 +94,7 @@ public class DoSSynchronousCoapClient {
 			.build();
 
 		// Create client
-		final CoapClient client = makeCoapClient(schemeIsCoap, timeoutConfig);
+		final CoapClient client = DoSUtil.makeCoapClient(schemeIsCoap, timeoutConfig);
 		client.useCONs();
 
 		RandomTokenGenerator tokenGenerator = new RandomTokenGenerator(Configuration.getStandard());
@@ -139,7 +107,7 @@ public class DoSSynchronousCoapClient {
 			request.setURI(proxyUri);
 			
 			// Need to mod by MAX_MID to avoid multicase MID range
-			request.setMID(i % MAX_MID);
+			request.setMID(i % DoSUtil.MAX_MID);
 			request.setToken(tokenGenerator.createToken(Scope.LONG_TERM));
 			
 			// Set mid_tok combination for after-the-fact analysis
