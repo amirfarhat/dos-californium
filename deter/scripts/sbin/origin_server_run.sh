@@ -11,8 +11,11 @@ touch $TMP_DATA/$ORIGIN_SERVER_ACCESS_LOGNAME
 rm -f $TMP_DATA/$ORIGIN_SERVER_ERROR_LOGNAME
 touch $TMP_DATA/$ORIGIN_SERVER_ERROR_LOGNAME
 
-# Reset the previous keylog file to clean slate
-server_keylogfile="$TMP_DATA/$ORIGIN_SERVER_KEYLOGFILE_NAME"
+# Reset the previous keylog file to clean slate. The ideal place for this keylog file to live is in 
+# TMP_DATA along with the rest of the files, but for some reason the server doesn't write out to TMP_DATA.
+# It is fine when the keylogfile is in HOME though. So we use that instead and move the keylog file to TMP_DATA
+# manually at the end.
+server_keylogfile="$HOME/$ORIGIN_SERVER_KEYLOGFILE_NAME"
 sudo touch $server_keylogfile
 sudo chmod 666 $server_keylogfile
 sudo bash -c "echo -n > $server_keylogfile"
@@ -30,6 +33,9 @@ sudo /etc/init.d/apache2 restart
 sleep $ORIGIN_SERVER_DURATION
 sudo /etc/init.d/apache2 stop
 
+# Copy keylogfile
+sudo cp $server_keylogfile $TMP_DATA/$ORIGIN_SERVER_KEYLOGFILE_NAME
+
 # Copy server access log
 sudo cp /var/log/apache2/access.log $TMP_DATA/$ORIGIN_SERVER_ACCESS_LOGNAME
 sudo rm /var/log/apache2/access.log
@@ -37,6 +43,3 @@ sudo rm /var/log/apache2/access.log
 # Copy server error log
 sudo cp /var/log/apache2/error.log $TMP_DATA/$ORIGIN_SERVER_ERROR_LOGNAME
 sudo rm /var/log/apache2/error.log
-
-# Copy server keylog file
-sudo cp $server_keylogfile $TMP_DATA
