@@ -39,7 +39,7 @@ echo "log on"          >> $OPLOG_CONF
 
 if [[ $TCPDUMP -eq 1 ]]; then
   log "Running origin_server tcpdump...\n"
-  screen -d -m sudo $BIN_HOME/run_tcpdump.sh
+  sudo screen -c $OPLOG_CONF -d -m -L sudo $BIN_HOME/run_tcpdump.sh
 fi
 
 if [[ $MONITOR_ORIGIN_SERVER_CPU -eq 1 ]]; then
@@ -53,4 +53,4 @@ if [[ $MONITOR_ORIGIN_SERVER_MEMORY -eq 1 ]]; then
 fi
 
 log "Running origin server...\n"
-sudo screen -c $OPLOG_CONF -d -m sudo $BIN_HOME/origin_server_run.sh
+sudo screen -c $OPLOG_CONF -d -m -L sudo $BIN_HOME/origin_server_run.sh

@@ -20,7 +20,7 @@ sudo bash -c "cat $UTILS_HOME/mpm_event.conf > /etc/apache2/mods-available/mpm_e
 
 # Set up libsslkeylog.so to log SSL secret keys
 cd $WS_NOTES_HOME
-sudo apt install git make gcc libssl-dev
+sudo apt install -y git make gcc libssl-dev
 make -B
 sudo install libsslkeylog.so /usr/local/lib/
 

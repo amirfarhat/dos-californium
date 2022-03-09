@@ -19,7 +19,7 @@ sudo bash -c "echo -n > $server_keylogfile"
 
 # Add libsslkeylog.so to the apache HTTP server. systemd uses editor for overrides, so this is a
 # hack to trick the systemd editor to accept input from stdin: https://bbs.archlinux.org/viewtopic.php?id=195782
-echo -e "[Service]\nEnvironment=LD_PRELOAD=/usr/local/lib/libsslkeylog.so\nEnvironment=SSLKEYLOGFILE=$server_keylogfile" | sudo SYSTEMD_EDITOR=tee systemctl edit apache2
+echo -en "[Service]\nEnvironment=LD_PRELOAD=/usr/local/lib/libsslkeylog.so\nEnvironment=SSLKEYLOGFILE=$server_keylogfile" | sudo SYSTEMD_EDITOR=tee systemctl edit apache2
 
 # Refresh systemctl daemon for apache2
 sudo systemctl daemon-reload

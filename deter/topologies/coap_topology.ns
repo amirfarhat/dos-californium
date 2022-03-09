@@ -2,7 +2,6 @@ set ns [new Simulator]
 source tb_compat.tcl
 
 # Groups of hardware and location type
-
 tb-make-soft-vtype ucb_good_or_better_hardware {bpc2133}
 tb-make-soft-vtype ucb_any_hardware {bpc2133 bpc2800 bpc3000 bpc3060 bvx2200}
 
@@ -58,10 +57,10 @@ set internetlink 1000Mbps
 set lanhome [$ns make-lan "routerhome client1 proxy" 100Mbps 0ms]
 
 # Links
-set linkinternet [$ns duplex-link routerhome routerinternet $internetlink 80ms DropTail]
+set linkinternet [$ns duplex-link routerhome routerinternet $internetlink 20ms DropTail]
 set linkattacker [$ns duplex-link routerhome attacker $attackrate 0ms DropTail]
-set linkserver [$ns duplex-link routerinternet originserver $internetlink 20ms DropTail]
-set linkreceiver [$ns duplex-link routerinternet receiver $internetlink 20ms DropTail]
+set linkserver [$ns duplex-link routerinternet originserver $internetlink 5ms DropTail]
+set linkreceiver [$ns duplex-link routerinternet receiver $internetlink 5ms DropTail]
 
 # IP Address Assignments
 # Note that if client and proxy are in the same LAN, they need to have
