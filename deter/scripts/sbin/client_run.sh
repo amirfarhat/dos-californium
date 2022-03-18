@@ -18,7 +18,7 @@ client_log="$TMP_DATA/$numbered_client.log"
 sudo rm -f $client_log
 sudo touch $client_log
 
-# The proxy URI will different if the proxy uses DTLS or not
+# The proxy URI will be different if the proxy uses DTLS or not
 proxy_uri=""
 if [[ $RUN_PROXY_WITH_DTLS -eq 1 ]]; then
   proxy_uri="coaps://$PROXY_IP:$PROXY_DTLS_PORT/coaps2http"
@@ -26,6 +26,7 @@ else
   proxy_uri="coap://$PROXY_IP:$PROXY_COAP_PORT/coap2http"
 fi
 
+# The destination depends on whether we're using HTTPS or not
 destination_uri=""
 if [[ $RUN_PROXY_WITH_HTTPS -eq 1 ]]; then
   destination_uri="https://$ORIGIN_SERVER_IP:$ORIGIN_SERVER_HTTPS_PORT"

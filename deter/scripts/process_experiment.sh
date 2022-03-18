@@ -174,8 +174,8 @@ function log_tcpdump_stats() {
   echo "    $(grep -Eic "\[fin\]" $connections_file) FINs, $(grep -Eic "\[fin, ack\]" $connections_file) FIN-ACKs"
   echo "    $(grep -Eic "\[ack\]" $connections_file) ACKs"
   echo "    $(grep -Ec "Application Data" $connections_file) Application Data Messages"
-  echo "    $(grep -Ec "TLS" $connections_file) TLS Messages"
-  echo "    $(grep -Ec "DTLS" $connections_file) DTLS Messages"
+  echo "    $(grep -Ec "\"TLS" $connections_file) TLS Messages"
+  echo "    $(grep -Ec "\"DTLS" $connections_file) DTLS Messages"
 
   if [[ -f $httpoutfile ]]; then
     echo "    HTTP response code frequencies $(cat $httpoutfile)"
