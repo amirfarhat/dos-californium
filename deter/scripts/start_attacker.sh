@@ -17,12 +17,28 @@ function log () {
   fi
 }
 
+my_hostname=$(hostname | awk '{ ORS="" } {split($0, a, "."); print a[1]}')
 sudo mkdir -p $TMP_DATA
+
+# Create empty attacker ops log
+OPLOG="$TMP_DATA/${my_hostname}_ops.log"
+sudo touch $OPLOG
+sudo rm $OPLOG
+sudo touch $OPLOG
+
+# Create attacker ops log configuration
+OPLOG_CONF="$HOME/$my_hostname.oplog.conf"
+sudo touch $OPLOG_CONF
+sudo rm $OPLOG_CONF
+sudo touch $OPLOG_CONF
+echo "logfile $OPLOG"  >> $OPLOG_CONF
+echo "logfile flush 1" >> $OPLOG_CONF
+echo "log on"          >> $OPLOG_CONF
 
 if [[ $TCPDUMP -eq 1 ]]; then
   log "Running attacker_tcpdump...\n"
-  screen -d -m sudo $BIN_HOME/run_tcpdump.sh
+  sudo screen -c $OPLOG_CONF -d -m -L sudo $BIN_HOME/run_tcpdump.sh
 fi
 
 log "Running attacker_flood...\n"
-screen -d -m sudo $BIN_HOME/attacker_flood.sh
+sudo screen -c $OPLOG_CONF -d -m -L sudo $BIN_HOME/attacker_flood.sh
