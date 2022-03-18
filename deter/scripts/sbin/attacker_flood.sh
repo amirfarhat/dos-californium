@@ -1,6 +1,6 @@
 #!/bin/bash
 
-source /proj/MIT-DoS/exp/coap-setup/deps/californium/deter/scripts/config.sh
+source /proj/MIT-DoS/exp/coap-setup/deps/dos-californium/deter/scripts/config.sh
 
 rm -f $TMP_DATA/$ATTACKER_LOGNAME
 touch $TMP_DATA/$ATTACKER_LOGNAME
