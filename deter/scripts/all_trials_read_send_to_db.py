@@ -46,11 +46,11 @@ cur = con.cursor()
 
 def read_data(node_name_map_ids):
   # Split ID maps
-  nname_map_node_id = {nname: node_name_map_ids[nname]["node_id"] for nname in node_name_map_ids}
-  nname_map_dnid = {nname: node_name_map_ids[nname]["dnid"] for nname in node_name_map_ids}
+  nname_map_node_id = {nname: str(node_name_map_ids[nname]["node_id"]) for nname in node_name_map_ids}
+  nname_map_dnid = {nname: str(node_name_map_ids[nname]["dnid"]) for nname in node_name_map_ids}
 
   # Typed parsing of the packet data
-  float_t = np.float
+  float_t = np.float64
   str_t = pd.StringDtype()
   uint16_t = pd.UInt16Dtype()
   uint32_t = pd.UInt32Dtype()
