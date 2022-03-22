@@ -17,6 +17,8 @@ def parse_args():
                       help='', action='store', type=str)
   parser.add_argument('-p', '--procedurespath', dest='procedurespath',
                       help='', action='store', type=str)
+  parser.add_argument('-m', '--modulus', dest='modulus',
+                      help='', action='store', type=int, default=101)
 
   return parser.parse_args()
 
@@ -74,7 +76,7 @@ def sql_create_tables():
       "observe_timestamp" float NOT NULL,
       "trial" int NOT NULL,
       "message_marker" int NOT NULL
-    );
+    ) PARTITION BY HASH(observer_id);
 
     CREATE TABLE IF NOT EXISTS "coap_message" (
       "cmci" SERIAL PRIMARY KEY NOT NULL,
@@ -98,6 +100,18 @@ def sql_create_tables():
       "metric_value" float NOT NULL
     );
   """
+
+def sql_create_partitions(modulus):
+  partition_template = """
+    CREATE TABLE event_with_observer_id_{observer_id} PARTITION OF event FOR VALUES WITH (MODULUS {modulus}, REMAINDER {remainder});
+  """
+
+  partition_creation_commands = ( partition_template.format(observer_id=remainder, 
+                                                            modulus=modulus,
+                                                            remainder=remainder) \
+                                  for remainder in range(modulus) )
+
+  return """\n""".join(partition_creation_commands)
 
 def sql_inject_foreign_keys():
   return """
@@ -128,6 +142,7 @@ def sql_inject_named_constraints():
 def create_tables_commands():
   return [
     sql_create_tables(),
+    sql_create_partitions(args.modulus),
     sql_inject_foreign_keys(),
     sql_inject_named_constraints(),
   ]
@@ -143,8 +158,12 @@ def main():
 
   # Create tables
   for c in create_tables_commands():
-    cur.execute(c)
-  con.commit()
+    try:
+      cur.execute(c)
+    except psycopg2.errors.DuplicateTable as e:
+      pass
+    finally:
+      con.commit()
 
   # Read functions and procedures then send to DB
   cur.execute(open(args.procedurespath, "r").read())
