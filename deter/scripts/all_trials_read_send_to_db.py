@@ -56,7 +56,7 @@ class Timer:
   """
   Class to aid in timing code
   """
-  def __init__(self, start_text, end_text="\tTime elapsed: {:.4f} seconds", print_header=False):
+  def __init__(self, start_text, end_text="Time elapsed: {:.4f} seconds", print_header=False):
     self._start_time_ns = None
     self._start_text = start_text
     self._end_text = end_text
@@ -68,7 +68,7 @@ class Timer:
 
     self._start_time_ns = time.perf_counter_ns()
     if self.print_header:
-      print(self._start_text)
+      print(self._start_text + "...")
 
   def stop(self):
     if self._start_time_ns is None:
@@ -216,7 +216,7 @@ def insert_metadata(cfg, node_name_map_ids):
   insert_node_table(cfg, node_name_map_ids)
   insert_deployed_node_table(cfg, node_name_map_ids)
 
-def insert_coap(df, cfg, node_name_map_ids):
+def insert_coap(df):
   """
   Insert uniquely valued coap messages into DB. Note 
   the new cmci for each one and reflect the update
@@ -258,9 +258,14 @@ def insert_coap(df, cfg, node_name_map_ids):
              & (df["coap_code"] == g[1])
              & (df["coap_retransmitted"] == g[2]), 'cmci'] = cmci
 
-  print(f"\tAdded {len(groups)} unique coap groups {groups} with cmci {cmcis}")
-  print()
+  print(f"\t==> Added {len(groups)} unique coap groups {groups} with cmci {cmcis}")
 
+def insert_message_coap(df):
+  """
+  Insert uniquely valued coap messages into DB. Note
+  the new message_id for each one and reflect the update
+  to the dataframe
+  """
   with Timer("\tFiltering dataframe for message-coap"):
     message_cols = ["message_size", "message_source", "message_destination", "cmci"]
     message_df = df[message_cols][(df["message_protocol"] == "coap") & (df['cmci'] > 0)]
@@ -269,7 +274,6 @@ def insert_coap(df, cfg, node_name_map_ids):
     # Count the rows with unique coap values
     groups_df = message_df.value_counts().reset_index(name="count")[message_cols]
     groups = tuple(groups_df.to_records(index=False).tolist())
-    print(f"\tFound {len(groups)} unique message-coap groups: {groups}")
     group_sequence = sum(groups, ()) # Convert unique rows to a flattened tuple
 
   # Batch the insertions and IDs fetches in a single SQL statement
@@ -296,7 +300,7 @@ def insert_coap(df, cfg, node_name_map_ids):
              & (df["message_destination"] == g[2])
              & (df["cmci"] == g[3]), 'message_id'] = message_id
 
-  print(f"\tAdded {len(groups)} unique message-coap groups {groups} with message_id {message_ids}")
+  print(f"\t==> Added {len(groups)} unique message-coap groups")
 
 def insert_http(df, cfg, node_name_map_ids):
   # Get http messages
@@ -395,9 +399,11 @@ def insert_metrics(node_name_map_ids):
     con.commit()
 
 def insert_packets(df, cfg, node_name_map_ids):
-  # Insert coap & http
   with Timer("Inserting coap", print_header=True):
-    insert_coap(df, cfg, node_name_map_ids)
+    insert_coap(df)
+
+  with Timer("Inserting message-coap", print_header=True):
+    insert_message_coap(df)
 
   with Timer("Inserting http"):
     insert_http(df, cfg, node_name_map_ids)
@@ -437,7 +443,7 @@ def main():
     insert_metrics(node_name_map_ids)
 
   # Read the actual experiment data into a typed dataframe
-  with Timer("Reading data"):
+  with Timer("Reading data", print_header=True):
     df = read_data(node_name_map_ids)
 
   # Start with coap messages, split into chunks
