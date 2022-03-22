@@ -221,7 +221,7 @@ $$ LANGUAGE plpgsql;
 
 
 --
--- MESSAGE FOR HTTP}
+-- MESSAGE FOR HTTP
 -- 
 CREATE OR REPLACE FUNCTION insert_into_message_http(
 	in_size_bytes int,
@@ -260,7 +260,7 @@ $$ LANGUAGE plpgsql;
 
 
 -- 
--- EVENT
+-- EVENT: DEPRECATED
 -- 
 CREATE OR REPLACE FUNCTION insert_into_event(
 	in_observer_id int,
@@ -294,7 +294,7 @@ $$ LANGUAGE plpgsql;
 
 
 -- 
--- ADD COAP PROCEDURE
+-- ADD COAP PROCEDURE : DEPRECATED
 -- 
 CREATE OR REPLACE PROCEDURE add_coap_message(
 	in_coap_type text, 
