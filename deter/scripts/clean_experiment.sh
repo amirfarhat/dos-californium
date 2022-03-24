@@ -30,10 +30,10 @@ for D in $exp_dir/*; do
       log_remove $main_data_file
     done
 
-    # Processed dumps
-    for processed_dump in $D/*.out; do
-      log_remove $processed_dump
-    done
+    # # Processed dumps
+    # for processed_dump in $D/*.out; do
+    #   log_remove $processed_dump
+    # done
     
     # Csvs
     for general_csv_file in $D/*.csv; do
