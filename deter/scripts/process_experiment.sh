@@ -132,7 +132,7 @@ for D in $exp_dir/*; do
     done
     # Process all input files into one file
     # If not already processed before
-    outfile="$D/$proper_experiment_name.csv"
+    outfile="$D/$proper_experiment_name.parquet"
     httpoutfile="$D/http_response_codes.json"
     coapoutfile="$D/coap_response_codes.json"
     if [[ ! -f $outfile ]]; then
