@@ -1,34 +1,145 @@
 import csv
-import sys
 import json
 import argparse
 
-import numpy as np
+from deter_utils import Timer, pl_replace
 
-from pprint import pprint
+import polars as pl
 
-http_response_code_map_freq = dict()
-coap_response_code_map_freq = dict()
+# Expect data rows read in to have these exact types
+# when reading data in. These will later be converted
+# to more convenient types.
+data_row_name_map_pl_type = {
+  '_ws.col.Time'           : pl.datatypes.Float64,
+  '_ws.col.Source'         : pl.datatypes.Utf8,
+  '_ws.col.Destination'    : pl.datatypes.Utf8,
+  '_ws.col.Protocol'       : pl.datatypes.Utf8,
+  '_ws.col.Length'         : pl.datatypes.Int64,
+  'coap.type'              : pl.datatypes.Int64,
+  'coap.retransmitted'     : pl.datatypes.Utf8,
+  'coap.code'              : pl.datatypes.Int64,
+  'coap.mid'               : pl.datatypes.Int64,
+  'coap.token'             : pl.datatypes.Utf8,
+  'coap.opt.proxy_uri'     : pl.datatypes.Utf8,
+  'http.request'           : pl.datatypes.Int64,
+  'http.request.method'    : pl.datatypes.Utf8,
+  'http.request.full_uri'  : pl.datatypes.Utf8,
+  'http.response'          : pl.datatypes.Int64,
+  'http.response.code'     : pl.datatypes.Int64,
+  'http.response.code.desc': pl.datatypes.Utf8,
+  'http.response_for.uri'  : pl.datatypes.Utf8
+}
 
-fieldnames = ['node_type',
-                'message_marker',
-                'message_timestamp', 
-                'message_source',
-                'message_destination',
-                'message_protocol',
-                'message_size',
-                'coap_type',
-                'coap_code',
-                'coap_message_id',
-                'coap_token',
-                'coap_proxy_uri',
-                'coap_retransmitted',
-                'http_request',
-                'http_request_method',
-                'http_request_full_uri',
-                'http_response_code',
-                'http_response_code_desc',
-                'http_response_for_uri']
+# Specification of how to go from data row names
+# to field names written out by the script.
+data_row_name_map_field_name = {
+  # Native wireshark columns
+  "_ws.col.Time"       : "message_timestamp",
+  "_ws.col.Source"     : "message_source",
+  "_ws.col.Destination": "message_destination",
+  "_ws.col.Protocol"   : "message_protocol",
+  "_ws.col.Length"     : "message_size",
+
+  # CoAP columns
+  "coap.type"         : "coap_type",
+  "coap.code"         : "coap_code",
+  "coap.mid"          : "coap_message_id",
+  "coap.token"        : "coap_token",
+  "coap.opt.proxy_uri": "coap_proxy_uri",
+  "coap.retransmitted": "coap_retransmitted",
+
+  # HTTP columns
+  "http.request"           : "http_request",
+  "http.request.method"    : "http_request_method",
+  "http.request.full_uri"  : "http_request_full_uri",
+  "http.response.code"     : "http_response_code",
+  "http.response.code.desc": "http_response_code_desc",
+  "http.response_for.uri"  : "http_response_for_uri",
+}
+
+assert set(data_row_name_map_field_name.keys()) <= set(data_row_name_map_pl_type.keys())
+
+# This is the final column type mapping which
+# the script will use to write out the transformed
+# data.
+field_name_map_pl_type = {
+  'node_type'              : pl.datatypes.Utf8,
+  'message_marker'         : pl.datatypes.Int64,
+  'message_timestamp'      : pl.datatypes.Float64,
+  'message_source'         : pl.datatypes.Utf8,
+  'message_destination'    : pl.datatypes.Utf8,
+  'message_protocol'       : pl.datatypes.Utf8,
+  'message_size'           : pl.datatypes.Int64,
+  'coap_type'              : pl.datatypes.Utf8,
+  'coap_code'              : pl.datatypes.Utf8,
+  'coap_message_id'        : pl.datatypes.Int64,
+  'coap_token'             : pl.datatypes.Utf8,
+  'coap_proxy_uri'         : pl.datatypes.Utf8,
+  'coap_retransmitted'     : pl.datatypes.Boolean,
+  'http_request'           : pl.datatypes.Boolean,
+  'http_request_method'    : pl.datatypes.Utf8,
+  'http_request_full_uri'  : pl.datatypes.Utf8,
+  'http_response_code'     : pl.datatypes.Int64,
+  'http_response_code_desc': pl.datatypes.Utf8,
+  'http_response_for_uri'  : pl.datatypes.Utf8,
+}
+
+# Message marker may not be ready during processing, so
+# we exclude it during processing.
+pre_final_field_name_map_pl_type = {f:t for f, t in field_name_map_pl_type.items() if f not in {"message_marker"}}
+
+field_names = set(field_name_map_pl_type.keys())
+assert set(field_name_map_pl_type.keys()) <= field_names
+assert set(pre_final_field_name_map_pl_type.keys()) <= field_names
+
+# Mapping from all possible coap type values to human readable ones.
+# Source: https://datatracker.ietf.org/doc/html/rfc7252#section-12.1.1
+coap_type_map_human_readable = {
+  "0": "con",
+  "1": "non",
+  "2": "ack",
+  "3": "rst",
+}
+
+# Mapping from all possible coap code values to human readable ones.
+# Source: https://datatracker.ietf.org/doc/html/rfc7252#section-12.1.2
+_code_to_string = lambda c, dd : (c << 5) | dd
+coap_code_map_human_readable = {
+  # Empty Message
+  _code_to_string(0, 00) : "empty_message",
+  
+  # Method Codes
+  _code_to_string(0,  1) : "get",
+  _code_to_string(0,  2) : "put",
+  _code_to_string(0,  3) : "post",
+  _code_to_string(0,  4) : "delete",
+
+  # Response Codes
+  _code_to_string(2,  1) : "created",
+  _code_to_string(2,  2) : "deleted",
+  _code_to_string(2,  3) : "valid",
+  _code_to_string(2,  4) : "changed",
+  _code_to_string(2,  5) : "content",
+  _code_to_string(4, 00) : "bad_request",
+  _code_to_string(4,  1) : "unauthorized",
+  _code_to_string(4,  2) : "bad_option",
+  _code_to_string(4,  3) : "forbidden",
+  _code_to_string(4,  4) : "not_found",
+  _code_to_string(4,  5) : "method_not_allowed",
+  _code_to_string(4,  6) : "not_acceptable",
+  _code_to_string(4, 12) : "precondition_failed",
+  _code_to_string(4, 13) : "request_entity_too_large",
+  _code_to_string(4, 15) : "unsupported_media_type",
+  _code_to_string(5, 00) : "internal_server_error",
+  _code_to_string(5,  1) : "not_implemented",
+  _code_to_string(5,  2) : "bad_gateway",
+  _code_to_string(5,  3) : "service_unavailable",
+  _code_to_string(5,  4) : "gateway_timeout",
+  _code_to_string(5,  5) : "proxying_not_supported",
+
+  # Everything else is reserved
+}
+
 
 def parse_args():
   parser = argparse.ArgumentParser(description = '')
@@ -48,394 +159,251 @@ def parse_args():
 
 args = parse_args()
 
-class CoapUnspportedValueException(Exception): pass
+# ----------------------------------------
 
-def coap_type_convert(coap_type: str) -> str:
+def get_device_name_map_file(infile_list):
   """
-  Convert integer `coap_type` to human-readable
+  Return a mapping from device name to corresponding file.
 
-  >>> coap_type_convert("0")
-  'con'
-
-  >>> coap_type_convert("1")
-  'non'
-
-  >>> coap_type_convert("2")
-  'ack'
-  
-  >>> coap_type_convert("3")
-  'rst'
+  >>> out = get_device_name_map_file(["/home/ubuntu/dos-californium/deter/expdata/real/final/client_and_attacker_httpson/1/attacker_dump.pcap.out",\
+                                      "/home/ubuntu/dos-californium/deter/expdata/real/final/client_and_attacker_httpson/1/client1_dump.pcap.out",\
+                                      "/home/ubuntu/dos-californium/deter/expdata/real/final/client_and_attacker_httpson/1/proxy_dump.pcap.out",\
+                                      "/home/ubuntu/dos-californium/deter/expdata/real/final/client_and_attacker_httpson/1/receiver_dump.pcap.out",\
+                                      "/home/ubuntu/dos-californium/deter/expdata/real/final/client_and_attacker_httpson/1/server_dump.pcap.out"])
+  >>> sorted(out.items())
+  [('attacker', '/home/ubuntu/dos-californium/deter/expdata/real/final/client_and_attacker_httpson/1/attacker_dump.pcap.out'), ('client1', '/home/ubuntu/dos-californium/deter/expdata/real/final/client_and_attacker_httpson/1/client1_dump.pcap.out'), ('proxy', '/home/ubuntu/dos-californium/deter/expdata/real/final/client_and_attacker_httpson/1/proxy_dump.pcap.out'), ('receiver', '/home/ubuntu/dos-californium/deter/expdata/real/final/client_and_attacker_httpson/1/receiver_dump.pcap.out'), ('server', '/home/ubuntu/dos-californium/deter/expdata/real/final/client_and_attacker_httpson/1/server_dump.pcap.out')]
   """
-  type_map_text = {
-    "0": "con",
-    "1": "non",
-    "2": "ack",
-    "3": "rst",
-  }
-  if coap_type not in type_map_text:
-    raise CoapUnspportedValueException(f"CoAP type {coap_type} must be one of {sorted(type_map_text.keys())}")
-  return type_map_text[coap_type]
-
-def coap_code_convert(coap_code: str) -> str:
-  """
-  Convert integer `coap_code` to human-readable "c.dd" format
-  where `c` is the class and `dd` is the detail
-
-  >>> set([coap_code_convert(x) for x in ["0", "00", "000"]])
-  {'empty_message'}
-
-  >>> set([coap_code_convert(x) for x in ["1", "1.0"]])
-  {'get'}
-
-  >>> set([coap_code_convert(x) for x in ["67", "67.0"]])
-  {'valid'}
-  >>> set([coap_code_convert(x) for x in ["69", "69.0"]])
-  {'content'}
-
-  >>> set([coap_code_convert(x) for x in ["128", "128.0"]])
-  {'bad_request'}
-  >>> set([coap_code_convert(x) for x in ["132", "132.0"]])
-  {'not_found'}
-
-  >>> set([coap_code_convert(x) for x in ["160", "160.0"]])
-  {'internal_server_error'}
-  >>> set([coap_code_convert(x) for x in ["163", "163.0"]])
-  {'service_unavailable'}
-  >>> set([coap_code_convert(x) for x in ["164", "164.0"]])
-  {'gateway_timeout'}
-  >>> set([coap_code_convert(x) for x in ["165", "165.0"]])
-  {'proxying_not_supported'}
-  """
-  # Convert into c.dd format
-  x = int(float(coap_code))
-  c, dd = (x >> 5, x & 0b11111)
-  coap_code = (c, dd)
-
-  code_map_text = {
-    # Empty Message
-    (0, 00) : "empty_message",
-    
-    # Method Codes
-    (0,  1) : "get",
-    (0,  2) : "put",
-    (0,  3) : "post",
-    (0,  4) : "delete",
-
-    # Response Codes
-    (2,  1) : "created",
-    (2,  2) : "deleted",
-    (2,  3) : "valid",
-    (2,  4) : "changed",
-    (2,  5) : "content",
-    (4, 00) : "bad_request",
-    (4,  1) : "unauthorized",
-    (4,  2) : "bad_option",
-    (4,  3) : "forbidden",
-    (4,  4) : "not_found",
-    (4,  5) : "method_not_allowed",
-    (4,  6) : "not_acceptable",
-    (4, 12) : "precondition_failed",
-    (4, 13) : "request_entity_too_large",
-    (4, 15) : "unsupported_content_format",
-    (5, 00) : "internal_server_error",
-    (5,  1) : "not_implemented",
-    (5,  2) : "bad_gateway",
-    (5,  3) : "service_unavailable",
-    (5,  4) : "gateway_timeout",
-    (5,  5) : "proxying_not_supported",
-
-    # Everything else is reserved
-  }
-  if coap_code not in code_map_text:
-    raise CoapUnspportedValueException(f"CoAP code {coap_code} must be one of {sorted(code_map_text.keys())}")
-  return code_map_text[coap_code]
-
-
-def ip_to_name(ip, config_dict):
-  hosts = config_dict['hosts']
-  for h in hosts:
-    if hosts[h]['ip'] == ip:
-      return h
-  print(hosts)
-  raise Exception(f"Could not find name for IP {ip}")
-  
-
-# ====================================================================
-# ====================================================================
-# ====================================================================
-# ====================================================================
-# ====================================================================
-# ====================================================================
-# ====================================================================
-# ====================================================================
-
-def parse_protocol_information(fieldmap, row, uid_map_number):
-  protocol = fieldmap['message_protocol']
-  uid = None
-
-  if protocol == "coap":
-    # CoAP Type
-    fieldmap["coap_type"] = coap_type_convert(row["coap.type"])
-
-    # CoAP Code
-    fieldmap["coap_code"] = coap_code_convert(row["coap.code"])
-
-    # CoAP MID
-    fieldmap["coap_message_id"] = row["coap.mid"]
-
-    # Machine sometimes inserts : so we need to remove it
-    coap_token = row["coap.token"].replace(":", "")
-    fieldmap["coap_token"] = coap_token
-
-    # CoAP Options
-    fieldmap["coap_proxy_uri"] = row["coap.opt.proxy_uri"]
-
-    # CoAp Retransmission
-    fieldmap["coap_retransmitted"] = 1 if row["coap.retransmitted"] else 0
-
-    # UID is made from the CoAP message ID and token
-    coap_message_id = fieldmap["coap_message_id"]
-    coap_token = fieldmap["coap_token"]
-    uid = f"{coap_message_id}_{coap_token}".lower()
-    if ":" in uid or ":" in coap_token:
-      raise Exception()
-
-    # Record coap response codes
-    global coap_response_code_map_freq
-    resp_code = fieldmap["coap_code"]
-    coap_response_code_map_freq[resp_code] = coap_response_code_map_freq.setdefault(resp_code, 0) + 1
-    
-
-  elif protocol == "http":
-    # Is HTTP request?
-    fieldmap["http_request"] = 1 if row["http.request"] else 0
-    fieldmap["http_request_method"] = row["http.request.method"].lower()
-    fieldmap["http_request_full_uri"] = row["http.request.full_uri"]
-
-    # Is HTTP response?
-    fieldmap["http_response_code"] = row["http.response.code"]
-    fieldmap["http_response_code_desc"] = row["http.response.code.desc"]
-    fieldmap["http_response_for_uri"] = row["http.response_for.uri"]
-
-    # Get whichever URI is first and not empty string
-    uri = fieldmap["http_request_full_uri"] or fieldmap["http_response_for_uri"]
-
-    # UID (from CoAP message ID and token), is the requested resource
-    uid = uri.split("/")[-1].lower()
-
-    # Record http response codes
-    global http_response_code_map_freq
-    resp_code = fieldmap["http_response_code"]
-    http_response_code_map_freq[resp_code] = http_response_code_map_freq.setdefault(resp_code, 0) + 1
-
-  else:
-    raise ValueError(f"Uncrecognized protocol {protocol}")
-
-  # Add to uid map
-  uid_map_number.setdefault(uid, 1 + len(uid_map_number))
-  fieldmap["message_marker"] = uid_map_number[uid]
-
-def do_process_row(row, writer, fieldmap, config_dict, uid_map_number):
-  # Timestamp
-  message_timestamp = row["_ws.col.Time"]
-  if float(message_timestamp) <= 0:
-    raise ValueError(f"Expected positive timestamp, got {message_timestamp}")
-  fieldmap["message_timestamp"] = message_timestamp
-
-  # Source
-  message_source = row["_ws.col.Source"]
-  fieldmap["message_source"] = ip_to_name(message_source, config_dict)
-
-  # Destination
-  message_destination = row["_ws.col.Destination"]
-  fieldmap["message_destination"] = ip_to_name(message_destination, config_dict)
-
-  # Protocol
-  message_protocol = row["_ws.col.Protocol"].lower()
-  if message_protocol not in { "coap", "http" }:
-    raise ValueError(f"Unrecognized protol {message_protocol}")
-  fieldmap["message_protocol"] = message_protocol
-
-  # Message size
-  message_size = row["_ws.col.Length"]
-  if int(message_size) <= 0:
-    raise ValueError(f"Expected positive message size, got {message_size}")
-  fieldmap["message_size"] = message_size
-
-  # Enagage protocol-specific parsing
-  parse_protocol_information(fieldmap, row, uid_map_number)
-
-def process_row(row, writer, fieldmap, config_dict, row_batch, uid_map_number):
-  do_process_row(row, writer, fieldmap, config_dict, uid_map_number)
-  
-  # Write empty string as null
-  for k, v in fieldmap.items():
-    fieldmap[k] = 'NULL' if v == '' else v
-
-  row_batch.append(fieldmap)
-
-# ====================================================================
-# ====================================================================
-# ====================================================================
-# ====================================================================
-# ====================================================================
-# ====================================================================
-# ====================================================================
-# ====================================================================
-
-class NamedReader:
-  def __init__(self, reader, name):
-    self.reader = reader
-    self.name = name
-    self.row = None
-    self.is_open = False
-  
-  def load_next(self):
-    if not self.is_open:
-      raise Exception("Named reader is not open")
-    try:
-      self.row = next(self.reader)
-    except StopIteration:
-      self.row = None
-      self.is_open = False
-    return self.row
-
-  def start(self):
-    if self.is_open:
-      raise Exception("Named reader is already open")
-    self.is_open = True
-
-def run_through_named_readers(writer, named_readers, config_dict, uid_map_number):
-  # Start all named readers
-  for nr in named_readers:
-    nr.start()
-    nr.load_next()
-
-  # Incrementally iterate over the readers, min row first by timestamp
-  open_nrs = list(filter(lambda nr: nr.is_open, named_readers))
-  while len(open_nrs) > 0:
-    # Get the named reader whose current row has the earliest timestamp
-    i, min_row_reader = min(enumerate(open_nrs), key=lambda t: t[1].row["_ws.col.Time"])
-    min_row = min_row_reader.row
-    assert min_row is not None
-
-    # Process that reader's row
-    fieldmap = { f : "" for f in fieldnames }
-    fieldmap['node_type'] = "originserver" if open_nrs[i].name == "server" else open_nrs[i].name
-    fieldmap['message_marker'] = -1
-    do_process_row(min_row, writer, fieldmap, config_dict, uid_map_number)
-    writer.writerow(fieldmap)
-
-    # Advance the next row for that reader
-    open_nrs[i].load_next()
-
-    # Recompute the open named readers
-    open_nrs = list(filter(lambda nr: nr.is_open, named_readers))
-
-  # All readers should now be closed
-  assert all(not nr.is_open for nr in named_readers)
-
-def ingest_tcpdumps(writer, fieldnames, infile_list, config_dict):
-  # Parse node type from filename
-  nodes = dict()
-  name_to_file = dict()
+  device_name_map_file = dict()
   for infile in infile_list:
     parts = infile.split('/')
     end = parts[-1].index("_dump")
-    n = parts[-1][:end]
+    name = parts[-1][:end]
+    device_name_map_file[name] = infile
+  return device_name_map_file
 
-    nodes[infile] = n
-    name_to_file[n] = infile
+def get_ip_addr_map_host_name(hosts_config_dict):
+  """
+  Turn the host configuration into a map from IP addresses to host names.
 
-  # Partition the infile list into groups that must be used for naming
-  # messages using a marker (marker_group) and the remaining ones (remaining_group)
-  marker_group = set()
-  remaining_group = set()
-  for name in name_to_file.keys():
-    # The physical source of messages is where we 
-    # employing naming / marking of messages
-    if name == "attacker" or name.startswith("client"):
-      marker_group.add(name)
-    else:
-      remaining_group.add(name)
+  >>> get_ip_addr_map_host_name({'attacker': {'hardware': 'microcloud', 'ip': '10.1.3.1', 'operating_system': 'ubuntu1804-std'}})
+  {'10.1.3.1': 'attacker'}
+  """
+  ip_addr_map_host_name = dict()
+  for host_name, host_details_dict in hosts_config_dict.items():
+    host_ip = host_details_dict["ip"]
+    if host_ip in ip_addr_map_host_name:
+      raise Exception(f"IP {host_ip} conflict for host {host_name} and {ip_addr_map_host_name[host_ip]}")
+    ip_addr_map_host_name[host_ip] = host_name
+  return ip_addr_map_host_name
 
-  mk_reader = lambda f : csv.DictReader(f, delimiter=";", quotechar='"')
+def summarize_protocol_statistics(df):
+  """
+  Count the response code occurrences for coap and http, then
+  write these out to the specified files.
+  """
+  def _summarize_response_counts(df, protocol, column, outfile):
+    summary_df = (
+      df
+      .filter(
+        (pl.col("message_protocol") == protocol)
+        & (pl.col(column).is_not_null())
+      )
+      .groupby(column)
+      .agg([
+        pl.col(column).count().alias("response_code_count")
+      ])
+    )
+    summary_df.write_json(outfile, row_oriented=True)
 
-  # Now process the marker group considering earliest timestamp first per
-  # row in order to assign message numbers
-  uid_map_number = dict()
-  if len(marker_group) > 0:
-    group = sorted(marker_group)
-    print(f"Reading {group}...")
-    open_files = [open(name_to_file[name], 'r') for name in group]
-    named_readers = [NamedReader(reader=mk_reader(open_files[i]), 
-                                  name=group[i]) for i, _ in enumerate(group)]
-    run_through_named_readers(writer, named_readers, config_dict, uid_map_number)
+  with Timer("\tSummarizing and writing out coap statistics", log=False):
+    _summarize_response_counts(df, "coap", "coap_type", args.coapoutfile)
+  
+  with Timer("\tSummarizing and writing out http statistics", log=False):
+    _summarize_response_counts(df, "http", "http_response_code", args.httpoutfile)
 
-  # Open each file sequentially
-  for node in remaining_group:
-    infile = name_to_file[node]
-    with open(infile, 'r') as inf:
-      print(f"Reading {node}...")
-      reader = mk_reader(inf)
+def validate_final_data(df):
+  """
+  Method that can be used to validate the data that has been prcessed.
+  """
+  pass
+
+def transform_http_data(df, coap_columns):
+  """
+  Transform http protocol messages to the correct types,
+  column names, and values.
+  """
+  # Filter for only http messages
+  hdf = df.filter(pl.col("message_protocol") == "http")
+
+  # Nullify values in coap columns. As opposed to the case for coap, where
+  # it is possible to nullofy and cast in the same step, after the main data
+  # transformation, for http it seems necessary to nullify, then transform,
+  # then cast. It is unclear why.
+  nullify_coap_columns = [pl.lit(None).alias(column_name) \
+                            for column_name in coap_columns]
+  hdf = hdf.with_columns(nullify_coap_columns)
+
+  hdf = hdf.with_columns([
+    # Convert http request to a boolean
+    pl.col("http_request").is_not_null().alias("http_request"),
+    
+    # Lowercase and coalesce the http URI across requests and responses
+    pl.format(
+        "{}{}",
+        pl.col("http_request_full_uri").str.to_lowercase().fill_null(""),
+        pl.col("http_response_for_uri").str.to_lowercase().fill_null("")
+    )
+    # Then assign each message a UID
+    .str.extract(r"(\w+_\w+)", 1).alias("uid"),    
+  ])
+
+  # Cast the dataframe to the final expected types
+  cast_to_final_types = [pl.col(col).cast(col_type).alias(col) for col, col_type in pre_final_field_name_map_pl_type.items()]
+  hdf = hdf.with_columns(cast_to_final_types)
+
+  return hdf
+
+def transform_coap_data(df, http_columns):
+  """
+  Transform coap protocol messages to the correct types,
+  column names, and values.
+  """
+  # Filter for only coap messages
+  cdf = df.filter(pl.col("message_protocol") == "coap")
+
+  cdf = cdf.with_columns([
+    # Convert coap type and code to human readable string
+    pl_replace("coap_type", coap_type_map_human_readable),
+    pl_replace("coap_code", coap_code_map_human_readable),
+
+    # Sometimes there is a random : so we need to remove it
+    pl.col("coap_token").str.replace(":", "").alias("coap_token"),
+    
+    # Convert coap retransmitted to a boolean
+    pl.col("coap_retransmitted").is_not_null().alias("coap_retransmitted"),
+    
+    # Assign each message a UID
+    pl.format("{}_{}", "coap_message_id", "coap_token").alias("uid")
+  ])
+
+  # Nullify values in http columns and cast the dataframe to the final expected types
+  nullify_http_columns = [pl.lit(None).alias(col) for col in http_columns]
+  cast_to_final_types = [pl.col(col).cast(col_type).alias(col) for col, col_type in pre_final_field_name_map_pl_type.items()]
+  cdf = cdf.with_columns(nullify_http_columns + cast_to_final_types)
+
+  return cdf
+
+def transform_data(df):
+  """
+  Transform coap and http protocol messages to the correct types,
+  column names, and values.
+  """
+  # Get columns that are involved explcitly in one protocol
+  http_columns = df.select("^(http_).*$").collect().columns
+  coap_columns = df.select("^(coap_).*$").collect().columns
+
+  with Timer("\tTransforming CoAP data"):
+    cdf = transform_coap_data(df, http_columns)
+
+  with Timer("\tTransforming HTTP data"):
+    hdf = transform_http_data(df, coap_columns)
+
+  with Timer("\tJoining CoAP and HTTP dataframes"):
+    joined_df = (
+      pl.concat([cdf, hdf])
+      .sort(by="message_timestamp")
+    )
+
+  with Timer("\tCreating message markers"):
+    message_marker_df = (
+      # Get unique UIDs
+      joined_df
+      .unique(maintain_order=True, subset=["uid"])
+      .select("uid")
       
-      BATCH_SIZE = 10_000
-      row_batch = list()
+      # Add row counter which will act as message marker
+      .with_row_count(name="message_marker", offset=1)
+    )
 
-      try:
-        row = next(reader)
-      except StopIteration:
-        row = None
-      while row:
-        try:
-          # Process this row
-          fieldmap = { f : "" for f in fieldnames }
-          fieldmap['node_type'] = "originserver" if node == "server" else node
-          process_row(row, writer, fieldmap, config_dict, row_batch, uid_map_number)
+  with Timer("\tJoining final dataframe"):
+    final_df = joined_df.join(message_marker_df, on="uid")
 
-          # Write processed rows in batches
-          if len(row_batch) >= BATCH_SIZE:
-            writer.writerows(row_batch)
-            row_batch = list()
+  with Timer("\tValidating final data"):
+    validate_final_data(final_df)
 
-          # Move to next row
-          row = next(reader)
+  return final_df
 
-        except StopIteration:
-          # No more new rows ==> handle potentially 
-          # lingering batch of rows to write
-          if len(row_batch) > 0:
-            writer.writerows(row_batch)
-          
-          # No more rows so loop should exit
-          row = None
+def read_data_lazily(device_name, infile, ip_addr_map_host_name):
+  """
+  Read the data from `infile` using a `LazyFrame` for good performance
+  and return it when done with initial shaping.
+
+  Source: https://pola-rs.github.io/polars/py-polars/html/reference/lazyframe.html
+  """
+  df = (
+    pl
+    # Read intermediate Wireshark data in as csv
+    .scan_csv(infile,
+              dtypes=data_row_name_map_pl_type,
+              sep=";",
+              quote_char='"')
+      
+    # Rename column names from Wireshark format to database format
+    .rename(data_row_name_map_field_name)
+    .drop("http.response")
+  )
+
+  return df.with_columns([
+    # Replace IP addresses with host names
+    pl_replace("message_source", ip_addr_map_host_name),
+    pl_replace("message_destination", ip_addr_map_host_name),
+      
+    # Add node type that generated the input data file
+    pl.lit(device_name).alias('node_type'),
+      
+    # Lowercase protocol names
+    pl.col("message_protocol").str.to_lowercase().alias("message_protocol")
+  ])
+
+def transform_and_write_data(infile_list, ip_addr_map_host_name):
+  """
+  Transforms the data from files in `infile_list` to a format
+  that is expected for possible later DB insertion.
+  """
+  device_name_map_file = get_device_name_map_file(infile_list)
+
+  with Timer("Lazily reading device data"):
+    lazy_dfs = [read_data_lazily(device_name, infile, ip_addr_map_host_name) \
+                  for device_name, infile in device_name_map_file.items()]
+
+  with Timer("Coalescing all device data"):
+    df = pl.concat(lazy_dfs)
+
+  with Timer("Transforming data"):
+    df = transform_data(df)
+
+  with Timer("Materializing data for writing"):
+    real_df = df.collect()
+
+  with Timer("Summarizing protocol statistics"):
+    summarize_protocol_statistics(real_df)
+
+  with Timer("Writing data out"):
+    real_df.write_parquet(args.outfile)
 
 def main():
   # Read config into dict
   with open(args.config, 'r') as f:
     config_dict = json.load(f)
 
-  # Strip mismatched right ; then split
+  # Map IP addresses to human readable host names
+  ip_addr_map_host_name = get_ip_addr_map_host_name(config_dict["hosts"])
+
+  # Separate input files into a list
   infile_list = args.infiles.rstrip(';').split(';')
 
-  with open(args.outfile, 'w') as outf:
-    # Write fields of the header
-    writer = csv.DictWriter(outf, fieldnames=fieldnames)
-    writer.writeheader()
-  
-    # Process the input files
-    ingest_tcpdumps(writer, fieldnames, infile_list, config_dict)
-
-  # Log and dump http response code stats
-  global http_response_code_map_freq, coap_response_code_map_freq
-  maps_and_files = [(http_response_code_map_freq, args.httpoutfile), (coap_response_code_map_freq, args.coapoutfile)]
-  for m, f in maps_and_files:
-    try:
-      del m[""]
-    except KeyError:
-      pass
-    with open(f, 'w') as handle:
-      json.dump(m, handle)
+  # Transform the input data and write it out anew
+  transform_and_write_data(infile_list, ip_addr_map_host_name)
 
 if __name__ == "__main__":
   import doctest
