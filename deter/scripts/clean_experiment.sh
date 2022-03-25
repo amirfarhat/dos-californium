@@ -9,8 +9,8 @@ fi
 log_remove() {
   file=$1
   if [[ -f $file ]]; then
-    echo "Removing `basename $file`..."
     rm $file
+    echo "Removed `basename $file`"
   fi
 }
 

@@ -53,7 +53,7 @@ joined_config=$exp_dir/metadata/config.json
 
 # Create database if not exists
 (sudo su postgres -c "psql template1 -c 'CREATE DATABASE ${dbname}'" || true) > /dev/null 2>&1
-echo "Created DB ${dbname}!"
+echo "Created DB ${dbname}"
 
 # Bootstrap DB for experiments
 python3 $SCRIPTS_DIR/bootstrap_db.py -d $dbname \
@@ -64,13 +64,12 @@ infiles=""
 for D in $exp_dir/*; do
   bd="$(basename $D)"
   if [[ -d $D && $bd != "metadata" ]]; then
-    csv_file="$D/$expname.csv"
-    infiles+="$csv_file;"
+    inf="$D/$expname.parquet"
+    infiles+="$inf;"
   fi
 done
-python3 $SCRIPTS_DIR/all_trials_read_send_to_db.py -i $infiles \
-                                                   -e $expname \
-                                                   -t $bd \
-                                                   -c $joined_config \
-                                                   -d $dbname \
-                                                   -m $exp_dir/$expname.metrics.csv
+time python3 $SCRIPTS_DIR/all_trials_read_send_to_db.py -i $infiles \
+                                                        -e $expname \
+                                                        -c $joined_config \
+                                                        -d $dbname \
+                                                        -m $exp_dir/$expname.metrics.csv

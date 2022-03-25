@@ -1,96 +1,17 @@
-import csv
 import json
 import argparse
 
-from deter_utils import Timer, pl_replace
+from pprint import pprint
+
+from nbformat import read
+from deter_utils import Timer
+from deter_utils import pl_replace
+from deter_utils import wireshark_data_row_name_map_pl_type
+from deter_utils import wireshark_data_row_name_map_field_name
+from deter_utils import transformed_field_name_map_pl_type
+from deter_utils import pre_final_transformed_field_name_map_pl_type
 
 import polars as pl
-
-# Expect data rows read in to have these exact types
-# when reading data in. These will later be converted
-# to more convenient types.
-data_row_name_map_pl_type = {
-  '_ws.col.Time'           : pl.datatypes.Float64,
-  '_ws.col.Source'         : pl.datatypes.Utf8,
-  '_ws.col.Destination'    : pl.datatypes.Utf8,
-  '_ws.col.Protocol'       : pl.datatypes.Utf8,
-  '_ws.col.Length'         : pl.datatypes.Int64,
-  'coap.type'              : pl.datatypes.Int64,
-  'coap.retransmitted'     : pl.datatypes.Utf8,
-  'coap.code'              : pl.datatypes.Int64,
-  'coap.mid'               : pl.datatypes.Int64,
-  'coap.token'             : pl.datatypes.Utf8,
-  'coap.opt.proxy_uri'     : pl.datatypes.Utf8,
-  'http.request'           : pl.datatypes.Int64,
-  'http.request.method'    : pl.datatypes.Utf8,
-  'http.request.full_uri'  : pl.datatypes.Utf8,
-  'http.response'          : pl.datatypes.Int64,
-  'http.response.code'     : pl.datatypes.Int64,
-  'http.response.code.desc': pl.datatypes.Utf8,
-  'http.response_for.uri'  : pl.datatypes.Utf8
-}
-
-# Specification of how to go from data row names
-# to field names written out by the script.
-data_row_name_map_field_name = {
-  # Native wireshark columns
-  "_ws.col.Time"       : "message_timestamp",
-  "_ws.col.Source"     : "message_source",
-  "_ws.col.Destination": "message_destination",
-  "_ws.col.Protocol"   : "message_protocol",
-  "_ws.col.Length"     : "message_size",
-
-  # CoAP columns
-  "coap.type"         : "coap_type",
-  "coap.code"         : "coap_code",
-  "coap.mid"          : "coap_message_id",
-  "coap.token"        : "coap_token",
-  "coap.opt.proxy_uri": "coap_proxy_uri",
-  "coap.retransmitted": "coap_retransmitted",
-
-  # HTTP columns
-  "http.request"           : "http_request",
-  "http.request.method"    : "http_request_method",
-  "http.request.full_uri"  : "http_request_full_uri",
-  "http.response.code"     : "http_response_code",
-  "http.response.code.desc": "http_response_code_desc",
-  "http.response_for.uri"  : "http_response_for_uri",
-}
-
-assert set(data_row_name_map_field_name.keys()) <= set(data_row_name_map_pl_type.keys())
-
-# This is the final column type mapping which
-# the script will use to write out the transformed
-# data.
-field_name_map_pl_type = {
-  'node_type'              : pl.datatypes.Utf8,
-  'message_marker'         : pl.datatypes.Int64,
-  'message_timestamp'      : pl.datatypes.Float64,
-  'message_source'         : pl.datatypes.Utf8,
-  'message_destination'    : pl.datatypes.Utf8,
-  'message_protocol'       : pl.datatypes.Utf8,
-  'message_size'           : pl.datatypes.Int64,
-  'coap_type'              : pl.datatypes.Utf8,
-  'coap_code'              : pl.datatypes.Utf8,
-  'coap_message_id'        : pl.datatypes.Int64,
-  'coap_token'             : pl.datatypes.Utf8,
-  'coap_proxy_uri'         : pl.datatypes.Utf8,
-  'coap_retransmitted'     : pl.datatypes.Boolean,
-  'http_request'           : pl.datatypes.Boolean,
-  'http_request_method'    : pl.datatypes.Utf8,
-  'http_request_full_uri'  : pl.datatypes.Utf8,
-  'http_response_code'     : pl.datatypes.Int64,
-  'http_response_code_desc': pl.datatypes.Utf8,
-  'http_response_for_uri'  : pl.datatypes.Utf8,
-}
-
-# Message marker may not be ready during processing, so
-# we exclude it during processing.
-pre_final_field_name_map_pl_type = {f:t for f, t in field_name_map_pl_type.items() if f not in {"message_marker"}}
-
-field_names = set(field_name_map_pl_type.keys())
-assert set(field_name_map_pl_type.keys()) <= field_names
-assert set(pre_final_field_name_map_pl_type.keys()) <= field_names
 
 # Mapping from all possible coap type values to human readable ones.
 # Source: https://datatracker.ietf.org/doc/html/rfc7252#section-12.1.1
@@ -223,7 +144,7 @@ def summarize_protocol_statistics(df):
 
 def validate_final_data(df):
   """
-  Method that can be used to validate the data that has been prcessed.
+  Method that can be used to validate the data that has been processed.
   """
   pass
 
@@ -247,18 +168,19 @@ def transform_http_data(df, coap_columns):
     # Convert http request to a boolean
     pl.col("http_request").is_not_null().alias("http_request"),
     
-    # Lowercase and coalesce the http URI across requests and responses
+    # Coalesce the http URI across requests and responses
     pl.format(
         "{}{}",
-        pl.col("http_request_full_uri").str.to_lowercase().fill_null(""),
-        pl.col("http_response_for_uri").str.to_lowercase().fill_null("")
+        pl.col("http_request_full_uri").fill_null(""),
+        pl.col("http_response_for_uri").fill_null("")
     )
     # Then assign each message a UID
     .str.extract(r"(\w+_\w+)", 1).alias("uid"),    
   ])
 
   # Cast the dataframe to the final expected types
-  cast_to_final_types = [pl.col(col).cast(col_type).alias(col) for col, col_type in pre_final_field_name_map_pl_type.items()]
+  # TODO cast to types and the null check can be refactored into a helper
+  cast_to_final_types = [pl.col(col).cast(col_type).alias(col) for col, col_type in pre_final_transformed_field_name_map_pl_type.items()]
   hdf = hdf.with_columns(cast_to_final_types)
 
   return hdf
@@ -288,7 +210,7 @@ def transform_coap_data(df, http_columns):
 
   # Nullify values in http columns and cast the dataframe to the final expected types
   nullify_http_columns = [pl.lit(None).alias(col) for col in http_columns]
-  cast_to_final_types = [pl.col(col).cast(col_type).alias(col) for col, col_type in pre_final_field_name_map_pl_type.items()]
+  cast_to_final_types = [pl.col(col).cast(col_type).alias(col) for col, col_type in pre_final_transformed_field_name_map_pl_type.items()]
   cdf = cdf.with_columns(nullify_http_columns + cast_to_final_types)
 
   return cdf
@@ -340,18 +262,29 @@ def read_data_lazily(device_name, infile, ip_addr_map_host_name):
 
   Source: https://pola-rs.github.io/polars/py-polars/html/reference/lazyframe.html
   """
+  lowercase_string_columns = [pl.col(col).str.to_lowercase().alias(col) \
+                                  for col, col_t in wireshark_data_row_name_map_pl_type.items() \
+                                    if col_t == pl.datatypes.Utf8]
   df = (
     pl
     # Read intermediate Wireshark data in as csv
     .scan_csv(infile,
-              dtypes=data_row_name_map_pl_type,
+              dtypes=wireshark_data_row_name_map_pl_type,
               sep=";",
               quote_char='"')
+
+    # Lowercase all the string column values
+    .with_columns(lowercase_string_columns)
       
     # Rename column names from Wireshark format to database format
-    .rename(data_row_name_map_field_name)
+    .rename(wireshark_data_row_name_map_field_name)
     .drop("http.response")
   )
+
+  # Sometimes the server is named "originserver", and other times
+  # it is named "server". Standardize the former here before proceeding
+  if device_name == "server":
+    device_name = "originserver"
 
   return df.with_columns([
     # Replace IP addresses with host names
@@ -360,9 +293,6 @@ def read_data_lazily(device_name, infile, ip_addr_map_host_name):
       
     # Add node type that generated the input data file
     pl.lit(device_name).alias('node_type'),
-      
-    # Lowercase protocol names
-    pl.col("message_protocol").str.to_lowercase().alias("message_protocol")
   ])
 
 def transform_and_write_data(infile_list, ip_addr_map_host_name):
@@ -388,7 +318,11 @@ def transform_and_write_data(infile_list, ip_addr_map_host_name):
   with Timer("Summarizing protocol statistics"):
     summarize_protocol_statistics(real_df)
 
-  with Timer("Writing data out"):
+  with Timer("Lowercasing text and writing data out"):
+    lowercase_string_columns = [pl.col(col).str.to_lowercase().alias(col) \
+                                  for col, col_t in transformed_field_name_map_pl_type.items() \
+                                    if col_t == pl.datatypes.Utf8]
+    real_df = real_df.with_columns(lowercase_string_columns)
     real_df.write_parquet(args.outfile)
 
 def main():

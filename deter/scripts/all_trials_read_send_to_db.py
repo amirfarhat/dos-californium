@@ -1,27 +1,23 @@
 import io
-import os
-import sys
 import json
-import time
 import argparse
 
 import psycopg2
 import psycopg2.extras
 
-import numpy as np
-import pandas as pd
+import polars as pl
 
-from pprint import pprint
-from multiprocessing.pool import ThreadPool
+from deter_utils import Timer
+from deter_utils import pl_replace
+from deter_utils import pl_replace_predicates_to_values
+from deter_utils import database_transformed_field_name_map_pl_type
 
 def parse_args():
   parser = argparse.ArgumentParser(description = '')
 
-  parser.add_argument('-i', '--infile-csvs', dest='infile_csvs',
+  parser.add_argument('-i', '--infiles', dest='infiles',
                       help='', action='store', type=str)
   parser.add_argument('-e', '--expname', dest='expname',
-                      help='', action='store', type=str)
-  parser.add_argument('-t', '--trial-number', dest='trial',
                       help='', action='store', type=str)
   parser.add_argument('-c', '--config', dest='config',
                       help='', action='store', type=str)
@@ -37,380 +33,470 @@ args = parse_args()
 con = psycopg2.connect(user="postgres", password="coap", dbname=args.dbname)
 cur = con.cursor()
 
-# --------------------------------------------------------------------
-# --------------------------------------------------------------------
-# --------------------------------------------------------------------
-# --------------------------------------------------------------------
-# --------------------------------------------------------------------
-# --------------------------------------------------------------------
-# --------------------------------------------------------------------
-# --------------------------------------------------------------------
+# ----------------------------------------
 
-class TimerException(Exception):
+def batch_sql_function_calls(select_sql, num_calls):
   """
-  Exceptions specific to instances of the `Timer` below
+  Combine multiple SQL function calls into the same
+  command sent to the DB.
+
+  >>> batch_sql_function_calls("SELECT * FROM insert_into_coap(%s, %s, %s)", 1)
+  'SELECT * FROM insert_into_coap(%s, %s, %s)'
+
+  >>> batch_sql_function_calls("SELECT * FROM insert_into_coap(%s, %s, %s)", 2)
+  'SELECT * FROM insert_into_coap(%s, %s, %s) UNION SELECT * FROM insert_into_coap(%s, %s, %s)'
+
+  >>> batch_sql_function_calls("SELECT * FROM insert_into_coap(%s, %s, %s)", 4)
+  'SELECT * FROM insert_into_coap(%s, %s, %s) UNION SELECT * FROM insert_into_coap(%s, %s, %s) UNION SELECT * FROM insert_into_coap(%s, %s, %s) UNION SELECT * FROM insert_into_coap(%s, %s, %s)'
   """
-  pass
-
-class Timer:
-  """
-  Class to aid in timing code
-  """
-  def __init__(self, start_text, end_text="Time elapsed: {:.4f} seconds", print_header=False):
-    self._start_time_ns = None
-    self._start_text = start_text
-    self._end_text = end_text
-    self.print_header = print_header
-
-  def start(self):
-    if self._start_time_ns is not None:
-      raise TimerException(f"Cannot start Timer, because it is already running with start time {self._start_time_ns}.")
-
-    self._start_time_ns = time.perf_counter_ns()
-    if self.print_header:
-      print(self._start_text + "...")
-
-  def stop(self):
-    if self._start_time_ns is None:
-      raise TimerException(f"Cannot stop Timer, because it has not been started.")
-
-    elapsed_time_ns = time.perf_counter_ns() - self._start_time_ns
-    self._start_time_ns = None
-    return self._start_text + " - " + self._end_text.format(elapsed_time_ns * 1e-9)
-
-  def __enter__(self):
-    self.start()
-    return self
-
-  def __exit__(self, *args):
-    print(self.stop())
-
+  unioned_select_sql = """UNION """ + select_sql
+  sql_parts = [None for _ in range(num_calls)]
+  sql_parts[0] = select_sql
+  for i in range(1, num_calls):
+    sql_parts[i] = unioned_select_sql
+  return " ".join(sql_parts)
 
 def read_data(node_name_map_ids):
-  # Split ID maps
+  # Split ID maps into node ID and deployed node ID
+  # TODO is there a way to have these maps unsplit on input?
   nname_map_node_id = {nname: str(node_name_map_ids[nname]["node_id"]) for nname in node_name_map_ids}
   nname_map_dnid = {nname: str(node_name_map_ids[nname]["dnid"]) for nname in node_name_map_ids}
 
-  # Typed parsing of the packet data
-  float_t = np.float64
-  str_t = pd.StringDtype()
-  uint16_t = pd.UInt16Dtype()
-  uint32_t = pd.UInt32Dtype()
-  bool_t = pd.BooleanDtype()
-  dtype = {
-    'node_type': str_t,
-    'message_marker': uint32_t,
-    'message_timestamp': float_t, 
-    'message_source': str_t,
-    'message_destination': str_t,
-    'message_protocol': str_t,
-    'message_size': uint16_t,
-    'coap_type': str_t,
-    'coap_code': str_t,
-    'coap_retransmitted': bool_t,
-    'http_request': bool_t,
-    'http_request_method': str_t,
-    'http_response_code': uint32_t,
-  }
+  # *Lazily* read each trial's data
+  infiles = args.infiles.rstrip(";").split(";")
 
-  # Get each trial's csv summary
-  infiles = args.infile_csvs.rstrip(";").split(";")
   num_trials = len(infiles)
+  trial_dfs = [None for _ in range(num_trials)]
+  assert len(infiles) == num_trials == len(trial_dfs)
+  for i, infile in enumerate(infiles):
+    df = pl.scan_parquet(infile)
+    df = df.with_columns([
+      pl.lit(-1).alias("cmci"),
+      pl.lit(-1).alias("hmci"),
+      pl.lit(-1).alias("message_id"),
+      pl.lit(i + 1).alias("trial"),
+    ])
+    trial_dfs[i] = df
 
-  def read_trial_df(trial_dfs, i):
-    tdf = pd.read_csv(infiles[i], dtype=dtype, usecols=dtype.keys(), engine="c")
-    
-    # Add IDs and metadata
-    tdf['cmci'] = -1
-    tdf['hmci'] = -1
-    tdf['message_id'] = -1
-    tdf['trial'] = i + 1
+  df = (
+    # Concatenate each trial's dataframe into one
+    pl
+    .concat(trial_dfs)
 
-    trial_dfs[i] = tdf
+    # Replace string node names with database IDs
+    .with_columns([
+      pl_replace("node_type", nname_map_dnid),
+      pl_replace("message_source", nname_map_node_id),
+      pl_replace("message_destination", nname_map_node_id),
+    ])
 
-  # Read each trial's data in a separate thread
-  trial_dfs = [None] * num_trials
-  with ThreadPool(num_trials) as pool:
-    for trial_idx in range(num_trials):
-      pool.apply_async(read_trial_df, (trial_dfs, trial_idx))
-    pool.close()
-    pool.join()
-  
-  # Combine the trial dataframes into one
-  df = pd.concat(trial_dfs)
-
-  # node_type should get dnid
-  df.node_type.replace(nname_map_dnid, inplace=True)
-
-  # message_source and message_destination should get node_id
-  df.message_source.replace(nname_map_node_id, inplace=True)
-  df.message_destination.replace(nname_map_node_id, inplace=True)
-
-  # Add row counter
-  df = df.reset_index()
-  df['message_index'] = np.arange(len(df))
-  df.set_index('message_index')
+    # Cast column types to expected db types
+    # TODO revisist the long array
+    .with_columns([pl.col(col).cast(col_t) for col, col_t in database_transformed_field_name_map_pl_type.items()])
+  )
 
   return df
 
 def insert_experiment_table(cfg):
-  sql = """
-  SELECT insert_into_experiment(
-    %s, %s,
-    %s, %s, %s, 
-    %s,
-    %s, %s, %s, %s, %s, %s,
-    %s,
-    %s, %s, %s, %s, %s, %s,
-    %s, %s
-  );
   """
-  sql_args = (
-    args.expname, cfg["attack_rate"], 
-    cfg["server_connections"], cfg["max_keep_alive_requests"], cfg["num_clients"], 
-    cfg["num_trials"],
-    cfg["origin_server_duration"], cfg["attacker_duration"], cfg["receiver_duration"], cfg["proxy_duration"], cfg["client_duration"], cfg["attacker_start_lag_duration"],
-    cfg["topology_name"],
-    cfg["num_proxy_connections"], cfg["request_timeout"], cfg["max_retries"], cfg["keep_alive_duration"], cfg["request_retry_interval"], cfg["reuse_connections"],
-    cfg["run_proxy_with_dtls"], cfg["run_proxy_with_https"]
-  )
-  cur.execute(sql, sql_args)
+  Insert this experiment's configuration values into the DB.
+  """
+  sql = """
+    SELECT insert_into_experiment(
+      %(expname)s, 
+      %(attack_rate)s,
+      %(server_connections)s,
+      %(max_keep_alive_requests)s,
+      %(num_clients)s, 
+      %(num_trials)s,
+      %(origin_server_duration)s,
+      %(attacker_duration)s,
+      %(receiver_duration)s,
+      %(proxy_duration)s,
+      %(client_duration)s,
+      %(attacker_start_lag_duration)s,
+      %(topology_name)s,
+      %(num_proxy_connections)s,
+      %(request_timeout)s,
+      %(max_retries)s,
+      %(keep_alive_duration)s,
+      %(request_retry_interval)s,
+      %(reuse_connections)s,
+      %(run_proxy_with_dtls)s,
+      %(run_proxy_with_https)s
+    );
+  """
+  cur.execute(sql, cfg)
   con.commit()
 
 def insert_node_table(cfg, node_name_map_ids):
-  sql = """
-  SELECT insert_into_node(
-    %s, %s, %s
-  );
   """
-  for nname, hdict in cfg["hosts"].items():
-    sql_args = (
-      nname, hdict['hardware'], hdict['operating_system']
-    )
-    cur.execute(sql, sql_args)
-    node_id = cur.fetchone()[0]
-    
-    # Note this node's node_id
-    node_name_map_ids.setdefault(nname, dict())
-    node_name_map_ids[nname]["node_id"] = node_id
-  
+  Insert this experiment's node templates into the node table in the DB.
+  """
+  # Stream each node, its hardware, and operating system as arguments to the SQL query
+  node_name_and_details = sorted(cfg["hosts"].items())
+  sql_args = [(name, details["hardware"], details["operating_system"]) \
+                for name, details in node_name_and_details]
+  sql_args = sum(sql_args, ())      
+
+  # Batch the insertions and node ID fetches in a single SQL statement
+  select_sql = """SELECT insert_into_node(%s, %s, %s)"""
+  sql = batch_sql_function_calls(select_sql, len(node_name_and_details))
+
+  # Execute the batch insertion and fetch node IDs returned
+  cur.execute(sql, sql_args)
+  node_ids = cur.fetchall()
+
+  for (node_name, _), (node_id,) in zip(node_name_and_details, node_ids):
+    # Record this node's node_id
+    node_name_map_ids.setdefault(node_name, dict())
+    node_name_map_ids[node_name]["node_id"] = node_id
+
   con.commit()
 
 def insert_deployed_node_table(cfg, node_name_map_ids):
-  # Insert nodes into deployed nodes associated with the exp
-  sql = """
-  SELECT insert_into_deployed_node(
-    %s, %s
-  );
   """
-  for nname, nids in sorted(node_name_map_ids.items()):
-    sql_args = (args.expname, nids["node_id"])
-    cur.execute(sql, sql_args)
-    dnid = cur.fetchone()[0]
-    node_name_map_ids[nname]["dnid"] = dnid
+  Insert this experiment's deployed nodes into the deployed node table in the DB.
+  """
+  # Stream each experiment name and node id to the SQL query
+  node_name_and_ids = sorted(node_name_map_ids.items())
+  sql_args = [(cfg["expname"], ids["node_id"]) \
+                for _, ids in node_name_and_ids]
+  sql_args = sum(sql_args, ())
+  
+  # Batch the insertions and node ID fetches in a single SQL statement
+  select_sql = """SELECT insert_into_deployed_node(%s, %s)"""
+  sql = batch_sql_function_calls(select_sql, len(node_name_map_ids))
+
+  # Execute the batch insertion and fetch deployed node IDs returned
+  cur.execute(sql, sql_args)
+  deployed_node_ids = cur.fetchall()
+
+  for (node_name, _), (dnid,) in zip(node_name_and_ids, deployed_node_ids):
+    # Record this node's dnid
+    node_name_map_ids[node_name]["dnid"] = dnid
   
   con.commit()
 
 def insert_metadata(cfg, node_name_map_ids):
+  """
+  Insert metadata of this experiment to the database. Metadata includes
+  configuration values and nodes which participated in the experiment.
+  """
   insert_experiment_table(cfg)
   insert_node_table(cfg, node_name_map_ids)
   insert_deployed_node_table(cfg, node_name_map_ids)
 
-def insert_coap(df):
+def insert_coap(df, log=False):
   """
   Insert uniquely valued coap messages into DB. Note 
   the new cmci for each one and reflect the update
-  to the dataframe
+  to the dataframe.
   """
-  with Timer("\tFiltering dataframe for coap"):
-    coap_df = df[df["message_protocol"] == "coap"]
-    coap_message_df = coap_df[["coap_type", "coap_code", "coap_retransmitted"]]
-    
-  with Timer("\tFiltering for uniquely valued coap groups"):
-    # Count the rows with unique coap values
-    groups_df = coap_message_df.value_counts().reset_index(name="count")[["coap_type", "coap_code", "coap_retransmitted"]]
-    groups = tuple(groups_df.to_records(index=False).tolist())
+  with Timer("\tFiltering dataframe for uniquely valued coap groups", log=log):
+    coap_df = (
+        df
+        .filter(pl.col("message_protocol") == "coap")
+        .select(["coap_type", "coap_code", "coap_retransmitted"])
+        .unique()
+    )
+    groups = tuple(coap_df.collect().to_pandas().to_records(index=False).tolist())
     group_sequence = sum(groups, ()) # Convert unique rows to a flattened tuple
   
   if len(groups) <= 0:
     raise Exception("No coap groups found")
 
   # Batch the insertions and IDs fetches in a single SQL statement
-  base_select_sql  = """SELECT * FROM insert_into_coap(%s, %s, %s)"""
-  union_select_sql = """UNION SELECT * FROM insert_into_coap(%s, %s, %s)"""
-  sql_parts = [None for _ in range(len(groups))]
-  sql_parts[0] = base_select_sql
-  for i in range(1, len(groups)):
-    sql_parts[i] = union_select_sql
-  sql = " ".join(sql_parts)
+  sql = batch_sql_function_calls("""SELECT * FROM insert_into_coap(%s, %s, %s)""", len(groups))
 
-  with Timer("\tSending coap groups to DB"):
+  with Timer("\tSending coap groups to DB", log=log):
     with con.cursor() as c:
       c.execute(sql, group_sequence)
       cmcis = c.fetchall()
       con.commit()
     cmcis = sum(cmcis, ())
 
-  with Timer("\tUpdating coap message IDs"):
+  with Timer("\tUpdating coap message IDs", log=log):
     # Associate each uniquely valued coap tuple in the dataframe with the coap ID from the DB 
-    for g, cmci in zip(groups, cmcis):
-      df.loc[(df["coap_type"] == g[0])
-             & (df["coap_code"] == g[1])
-             & (df["coap_retransmitted"] == g[2]), 'cmci'] = cmci
+    filter_predicates = [(
+      (pl.col("coap_type") == g[0])
+      & (pl.col("coap_code") == g[1])
+      & (pl.col("coap_retransmitted") == g[2])
+      ) for g in groups
+    ]
+    df = df.with_columns([
+      pl_replace_predicates_to_values("cmci", filter_predicates, cmcis)
+    ])
+  
+  if log:
+    print(f"\t==> Added {len(groups)} unique coap groups {groups} with cmci {cmcis}")
+  
+  return df
 
-  print(f"\t==> Added {len(groups)} unique coap groups {groups} with cmci {cmcis}")
-
-def insert_message_coap(df):
+def get_http_partition_groups(df):
   """
-  Insert uniquely valued coap messages into DB. Note
-  the new message_id for each one and reflect the update
-  to the dataframe
+  Partition `df` into uniquely values HTTP requests and responses,
+  returning the groupings of these values as tuples.
   """
-  with Timer("\tFiltering dataframe for message-coap"):
-    message_cols = ["message_size", "message_source", "message_destination", "cmci"]
-    message_df = df[message_cols][(df["message_protocol"] == "coap") & (df['cmci'] > 0)]
+  http_df = df.filter(
+    pl.col("message_protocol") == "http"
+  )
 
-  with Timer("\tFiltering for uniquely valued message-coap groups"):
-    # Count the rows with unique coap values
-    groups_df = message_df.value_counts().reset_index(name="count")[message_cols]
-    groups = tuple(groups_df.to_records(index=False).tolist())
-    group_sequence = sum(groups, ()) # Convert unique rows to a flattened tuple
+  http_request_df = (
+    http_df
+    # Only keep HTTP requests
+    .filter(
+      pl.col("http_request") == True
+    )
+    # Add placeholder http_response_code for DB schema
+    .with_column(
+      pl.lit(-1).alias("http_response_code")
+    )
+    # Keep only DB schema columns
+    .select(["http_request", "http_request_method", "http_response_code"])
+
+    # Keep distinct values
+    .unique()
+  )
+  request_groups = tuple(http_request_df.collect().to_pandas().to_records(index=False).tolist())
+  request_group_sequence = sum(request_groups, ()) # Convert unique rows to a flattened tuple
+  if len(request_groups) <= 0:
+    raise Exception("No http request groups found")
+
+  http_response_df = (
+    http_df
+    # Only keep HTTP responses
+    .filter(
+      pl.col("http_request") == False
+    )
+    # Add placeholder http_request_method for DB schema
+    .with_column(
+      pl.lit("").alias("http_request_method")
+    )
+    # Keep only DB schema columns
+    .select(["http_request", "http_request_method", "http_response_code"])
+
+    # Keep distinct values
+    .unique()
+  )
+  response_groups = tuple(http_response_df.collect().to_pandas().to_records(index=False).tolist())
+  response_group_sequence = sum(response_groups, ()) # Convert unique rows to a flattened tuple
+  if len(response_groups) <= 0:
+    raise Exception("No http response groups found")
+
+  return request_groups, request_group_sequence, response_groups, response_group_sequence
+
+def _insert_http_partition(df, partition, groups, group_sequence, cursor, log=False):
+  """
+  Insert a HTTP `partition`, defined as either a request or response, to the DB
+  using the DB `cursor` and group values `groups`, `group_sequence`. Finally return
+  `df` with the update hcmis.
+  """
+  supported_partitions = {'request', 'response'}
+  if partition not in supported_partitions:
+    raise Exception(f"Got unsupported HTTP partition {partition}. Supported partitions are {supported_partitions}")
+
+  # Decide about which column matters depending on whether
+  # this partition of HTTP is a request or a response
+  if partition == "request":
+    partition_aware_column = "http_request_method"
+    group_index            = 1
+    is_http_request        = True
+  elif partition == "response":
+    partition_aware_column = "http_response_code"
+    group_index            = 2
+    is_http_request        = False
+  else:
+    raise Exception("Unreachable")
 
   # Batch the insertions and IDs fetches in a single SQL statement
-  base_select_sql  = """SELECT * FROM insert_into_message_coap(%s, %s, %s, %s)"""
-  union_select_sql = """UNION SELECT * FROM insert_into_message_coap(%s, %s, %s, %s)"""
-  sql_parts = [None for _ in range(len(groups))]
-  sql_parts[0] = base_select_sql
-  for i in range(1, len(groups)):
-    sql_parts[i] = union_select_sql
-  sql = " ".join(sql_parts)
+  select_sql = """SELECT * FROM insert_into_http(%s, %s, %s)"""
+  sql = batch_sql_function_calls(select_sql, len(groups))
 
-  with Timer("\tSending message-coap groups to DB"):
+  # Execute the insertions and fetch the returned IDs
+  with Timer(f"\tSending http {partition} groups to DB", log=log):
+    cursor.execute(sql, group_sequence)
+    hmcis = cursor.fetchall()
+    con.commit()
+    hmcis = sum(hmcis, ())
+
+  # Update the hmcis for columns with matching values
+  with Timer(f"\tUpdating http {partition} message IDs", log=log):
+    hmci_update_predicates = [
+      (pl.col("message_protocol") == "http")
+        & (pl.col("http_request") == is_http_request)
+        & (pl.col(partition_aware_column) == g[group_index])
+        & (pl.col("hmci") < 0)
+      for g in groups
+    ]
+    df = df.with_columns([
+      pl_replace_predicates_to_values("hmci", hmci_update_predicates, hmcis)
+    ])
+
+  if log:
+    print(f"\t==> Added {len(groups)} unique http {partition} groups {groups} with hmci {hmcis}")
+
+  return df
+
+def _insert_message_for_protocol(df, protocol, log=False):
+  """
+  Insert uniquely valued `protocol` messages into DB. Note
+  the new message_id for each one and reflect the update
+  to the dataframe. Protocol can be either http or coap.
+  """
+  supported_protocols = {"coap", "http"}
+  if protocol not in supported_protocols:
+    raise Exception(f"Got unsupported protocol {protocol}. Supported protocols are {supported_protocols}")
+
+  # Set attributes of the database based on the input protocol
+  insertion_function_name = f"insert_into_message_{protocol}"
+  protocol_message_id_name = f"{protocol[0]}mci"
+
+  with Timer(f"\tFiltering dataframe for uniquely valued message-{protocol} groups", log=log):
+    message_df = (
+      df
+      .filter(
+        (pl.col("message_protocol") == protocol)
+        & (pl.col(protocol_message_id_name) > 0)
+      )
+      .select(["message_size", "message_source", "message_destination", protocol_message_id_name])
+      .unique()
+    )
+    groups = tuple(message_df.collect().to_pandas().to_records(index=False).tolist())
+    group_sequence = sum(groups, ()) # Convert unique rows to a flattened tuple
+
+  if len(groups) <= 0:
+    raise Exception(f"No message-{protocol} groups found")
+
+  # Batch the insertions and IDs fetches in a single SQL statement
+  select_sql = f"""SELECT * FROM {insertion_function_name}(%s, %s, %s, %s)"""
+  sql = batch_sql_function_calls(select_sql, len(groups))
+
+  with Timer(f"\tSending message-{protocol} groups to DB", log=log):
     with con.cursor() as c:
       c.execute(sql, group_sequence)
       message_ids = c.fetchall()
       con.commit()
     message_ids = sum(message_ids, ())
 
-  with Timer("\tUpdating message-coap IDs"):
-    # Associate each uniquely valued message-coap tuple in the dataframe with the message ID from the DB 
-    for g, message_id in zip(groups, message_ids):
-      df.loc[(df["message_size"] == g[0])
-             & (df["message_source"] == g[1])
-             & (df["message_destination"] == g[2])
-             & (df["cmci"] == g[3]), 'message_id'] = message_id
+  with Timer(f"\tUpdating message-{protocol} IDs", log=log):
+    # Associate each uniquely valued message tuple in the dataframe with the message ID from the DB
+    filter_predicates = [(
+      (pl.col("message_size") == g[0])
+      & (pl.col("message_source") == g[1])
+      & (pl.col("message_destination") == g[2])
+      & (pl.col(protocol_message_id_name) == g[3])
+      ) for g in groups
+    ]
+    df = df.with_columns([
+      pl_replace_predicates_to_values("message_id", filter_predicates, message_ids)
+    ])
 
-  print(f"\t==> Added {len(groups)} unique message-coap groups")
+  if log:
+    print(f"\t==> Added {len(groups)} unique message-{protocol} groups {groups} with message_id {message_ids}")
 
-def insert_http(df, cfg, node_name_map_ids):
-  # Get http messages
-  http_df = df[df["message_protocol"] == "http"]
+  return df
 
-  http_req_df = http_df[http_df["http_request"]]
-  http_res_df = http_df[~http_df["http_request"]]
-
-  requests_gb = http_req_df.groupby(by=["http_request", "http_request_method"])
-  responses_gb = http_res_df.groupby(by=["http_request", "http_response_code"])
-
-  sql = """
-    SELECT insert_into_http(%s, %s, %s);
+def insert_http(df, log=False):
   """
-
-  # Insert uniquely valued http requests into DB, note 
-  # the new hmci for each one
-  with con.cursor() as c:
-    for dhqg, idxs in requests_gb.groups.items():
-      c.execute(sql, [bool(dhqg[0]), dhqg[1], -1])
-      hmci = c.fetchone()[0]
-      df.loc[df["message_index"].isin(set(idxs)), 'hmci'] = hmci
-    con.commit()
-
-  # Insert uniquely valued http responses into DB, note 
-  # the new hmci for each one
-  with con.cursor() as c:
-    for dhsg, idxs in responses_gb.groups.items():
-      c.execute(sql, [bool(dhsg[0]), '', dhsg[1]])
-      hmci = c.fetchone()[0]
-      df.loc[df["message_index"].isin(set(idxs)), 'hmci'] = hmci
-    con.commit()
-
-  http_df = df[df["message_protocol"] == "http"]
-  message_df = http_df[["message_size", "message_source", "message_destination", "hmci"]]
-
-  # Insert uniquely valued messages into DB, note 
-  # the new message_id for each one
-  sql = """
-    SELECT insert_into_message_http(%s, %s, %s, %s);
+  Insert uniquely valued http requests and responses into DB. 
+  Note the new hmci ID for each one and reflect the update
+  to the dataframe.
   """
-  message_df_gb = message_df.groupby(by=["message_size", "message_source", "message_destination", "hmci"])
-  with con.cursor() as c:
-    for dmg, idxs in message_df_gb.groups.items():
-      c.execute(sql, dmg)
-      message_id = c.fetchone()[0]
-      df.loc[df["message_index"].isin(idxs), 'message_id'] = message_id
-    con.commit()
-
-def insert_event(df, cfg, node_name_map_ids):
-  # Construct event
-  event_df = df[["node_type", "message_id", "message_timestamp", "trial", "message_marker"]]
-  event_df = event_df.rename(columns={
-    "node_type": "observer_id",
-    "message_timestamp": "observe_timestamp",
-  })
+  with Timer("\tFiltering dataframe for uniquely valued http groups", log=log):
+    request_groups, request_group_sequence, \
+      response_groups, response_group_sequence = get_http_partition_groups(df)
 
   with con.cursor() as c:
-    c.execute("""BEGIN;""")
-    c.execute("""ALTER TABLE "event" DROP CONSTRAINT event_observer_id_fkey;""")
-    c.execute("""ALTER TABLE "event" DROP CONSTRAINT event_message_id_fkey;""")
+    df = _insert_http_partition(df, "request", request_groups, request_group_sequence, c, log=log)
+    df = _insert_http_partition(df, "response", response_groups, response_group_sequence, c, log=log)
+
+  return df
+
+def insert_event(df, log=False):
+  """
+  Bulk insert the contents of the dataframe into the event table.
+  """
+  # Shape event dataframe to look like event table in DB
+  with Timer("\tShaping dataframe for bulk insertion to event", log=log):
+    event_df = (
+      df
+      .select(["node_type", "message_id", "message_timestamp", "trial", "message_marker"])
+      .rename({
+        "node_type": "observer_id",
+        "message_timestamp": "observe_timestamp",
+      })
+      .collect()
+    )
+
+  with con.cursor() as c:
+    with Timer("\tDropping constraints", log=log):
+      c.execute("""BEGIN;""")
+      c.execute("""ALTER TABLE "event" DROP CONSTRAINT event_observer_id_fkey;""")
+      c.execute("""ALTER TABLE "event" DROP CONSTRAINT event_message_id_fkey;""")
 
     # And send a csv copy via stdin
-    buf = io.StringIO()
-    event_df.to_csv(buf, header=None, index=None)
-    buf.seek(0)
-    c.copy_from(buf, "event", columns=event_df.columns, sep=",")
+    with Timer("\tCopying", log=log):
+      buf = io.BytesIO()
+      event_df.write_csv(buf, has_header=False)
+      buf.seek(0)
+      c.copy_from(buf, "event", columns=event_df.columns, sep=",")
 
-    c.execute("""ALTER TABLE "event" ADD CONSTRAINT event_message_id_fkey FOREIGN KEY ("message_id") REFERENCES "message" ("message_id");""")
-    c.execute("""ALTER TABLE "event" ADD CONSTRAINT event_observer_id_fkey FOREIGN KEY ("observer_id") REFERENCES "deployed_node" ("dnid");""")
-    c.execute("""COMMIT;""")
+    with Timer("\tReinstating constraints", log=log):
+      c.execute("""ALTER TABLE "event" ADD CONSTRAINT event_message_id_fkey FOREIGN KEY ("message_id") REFERENCES "message" ("message_id");""")
+      c.execute("""ALTER TABLE "event" ADD CONSTRAINT event_observer_id_fkey FOREIGN KEY ("observer_id") REFERENCES "deployed_node" ("dnid");""")
+      c.execute("""COMMIT;""")
     con.commit()
 
 def insert_metrics(node_name_map_ids):
   # Alias server to origin server
   node_name_map_ids["server"] = {**node_name_map_ids["originserver"]}
+  nname_map_dnid = {nname: str(node_name_map_ids[nname]["dnid"]) for nname in node_name_map_ids}
 
-  # Read and massage dataframe of the metrics
-  metrics_df = pd.read_csv(args.metrics_file, engine="c")
-  metrics_df = metrics_df.rename(columns={
-    "device_name": "observer_id",
-    "metric_name": "metric_type",
-  })
-  metrics_df = metrics_df[["observer_id", "trial", "observation_timestamp", "metric_type", "metric_value"]]
+  metrics_df = (
+    pl
+    .scan_csv(args.metrics_file)
+    
+    # Rename columns and re-order to match DB schema of the metric table
+    .rename({
+      "device_name": "observer_id",
+      "metric_name": "metric_type",
+    })
+    .select(["observer_id", "trial", "observation_timestamp", "metric_type", "metric_value"])
 
-  # Replace english names of devices (like proxy or server) with their dnids
-  for node_name, ids in node_name_map_ids.items():
-    metrics_df.loc[metrics_df["observer_id"] == node_name, 'observer_id'] = ids["dnid"]
+    # Replace observer id with deployed node IDs from the DB
+    .with_columns([
+      pl_replace("observer_id", nname_map_dnid)
+    ])
+    
+    .collect()
+  )
 
   # Copy metrics to the node metric table
   with con.cursor() as c:
-    buf = io.StringIO()
-    metrics_df.to_csv(buf, header=None, index=None)
+    buf = io.BytesIO()
+    metrics_df.write_csv(buf, has_header=False)
     buf.seek(0)
     c.copy_from(buf, "node_metric", columns=metrics_df.columns, sep=",")
     con.commit()
 
-def insert_packets(df, cfg, node_name_map_ids):
-  with Timer("Inserting coap", print_header=True):
-    insert_coap(df)
+def insert_packets(df):
+  with Timer("Inserting coap"):
+    df = insert_coap(df)
 
-  with Timer("Inserting message-coap", print_header=True):
-    insert_message_coap(df)
+  with Timer("Inserting message-coap"):
+    df = _insert_message_for_protocol(df, "coap")
 
   with Timer("Inserting http"):
-    insert_http(df, cfg, node_name_map_ids)
+    df = insert_http(df)
+
+  with Timer("Inserting message-http"):
+    df = _insert_message_for_protocol(df, "http")
   
-  # Then bulk load the events
-  with Timer("Inserting event"):
-    insert_event(df, cfg, node_name_map_ids)
+  with Timer("Inserting event", print_header=True):
+    df = insert_event(df, log=True)
+
+  return df
 
 def run_analyze():
   with con.cursor() as c:
@@ -438,16 +524,16 @@ def main():
   with Timer("Inserting metadata"):
     insert_metadata(cfg, node_name_map_ids)
 
-  # Insert metrics recorded during the experiment
-  with Timer("Inserting metrics"):
-    insert_metrics(node_name_map_ids)
-
   # Read the actual experiment data into a typed dataframe
-  with Timer("Reading data", print_header=True):
+  with Timer("Reading data"):
     df = read_data(node_name_map_ids)
 
   # Start with coap messages, split into chunks
-  insert_packets(df, cfg, node_name_map_ids)
+  insert_packets(df)
+
+  # Insert metrics recorded during the experiment
+  with Timer("Inserting metrics"):
+    insert_metrics(node_name_map_ids)
 
   # Run ANALYZE for better read performance later
   with Timer("Running analyze"):
@@ -463,3 +549,4 @@ if __name__ == "__main__":
   except Exception as e:
     con.close()
     raise e
+  # TODO add finally with a con close
