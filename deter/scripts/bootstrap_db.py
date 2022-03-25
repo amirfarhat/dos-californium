@@ -1,14 +1,7 @@
-import io
-import json
-import time
 import argparse
-
 import psycopg2
 
-import numpy as np
-import pandas as pd
-
-from pprint import pprint
+from deter_utils import Timer
 
 def parse_args():
   parser = argparse.ArgumentParser(description = '')
@@ -98,17 +91,19 @@ def sql_create_tables():
       "observation_timestamp" int NOT NULL,
       "metric_type" text NOT NULL,
       "metric_value" float NOT NULL
-    );
+    ) PARTITION BY HASH(observer_id);
   """
 
-def sql_create_partitions(modulus):
+def sql_create_partitions(base_table_name, modulus):
   partition_template = """
-    CREATE TABLE event_with_observer_id_{observer_id} PARTITION OF event FOR VALUES WITH (MODULUS {modulus}, REMAINDER {remainder});
+    CREATE TABLE {base_table_name}_with_observer_id_{observer_id} PARTITION OF {base_table_name} 
+    FOR VALUES WITH (MODULUS {modulus}, REMAINDER {remainder});
   """
 
   partition_creation_commands = ( partition_template.format(observer_id=remainder, 
                                                             modulus=modulus,
-                                                            remainder=remainder) \
+                                                            remainder=remainder,
+                                                            base_table_name=base_table_name) \
                                   for remainder in range(modulus) )
 
   return """\n""".join(partition_creation_commands)
@@ -142,7 +137,8 @@ def sql_inject_named_constraints():
 def create_tables_commands():
   return [
     sql_create_tables(),
-    sql_create_partitions(args.modulus),
+    sql_create_partitions("event", args.modulus),
+    sql_create_partitions("node_metric", args.modulus),
     sql_inject_foreign_keys(),
     sql_inject_named_constraints(),
   ]
@@ -150,29 +146,27 @@ def create_tables_commands():
 args = parse_args()
 
 def main():
-  # Create tables and utilities on the database for insertion
-
-  # Set up connection and cursor
   con = psycopg2.connect(user="postgres", password="coap", dbname=args.dbname)
-  cur = con.cursor()
-
-  # Create tables
-  for c in create_tables_commands():
-    try:
-      cur.execute(c)
-    except psycopg2.errors.DuplicateTable as e:
-      pass
-    finally:
-      con.commit()
-
-  # Read functions and procedures then send to DB
-  cur.execute(open(args.procedurespath, "r").read())
-  con.commit()
-
-  # Close connection to database
-  print("Created tables, functions, and stored procedures")
-  con.close()
-
+  try:
+    with con.cursor() as c:  
+      with Timer("Setting up DB tables, functions, and stored procedures"):
+        # Create tables
+        try:
+          create_tables_sql = "\n".join(create_tables_commands())
+          c.execute(create_tables_sql)
+        except psycopg2.errors.DuplicateTable:
+          pass
+        con.commit()
+        
+        # Define functions and stored procedures
+        try:
+          c.execute(open(args.procedurespath, "r").read())
+        except psycopg2.errors.DuplicateTable:
+          pass
+        con.commit()
+  finally:
+    con.close()
+  
 if __name__ == "__main__":
   import doctest
   doctest.testmod()

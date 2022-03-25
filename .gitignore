@@ -7,6 +7,7 @@ doc/
 .loadpath
 .metadata
 *.pydevproject
+__pycache__
 *.bak
 *.swp
 *.tmp
