@@ -69,7 +69,6 @@ for D in $exp_dir/*; do
   fi
 done
 time python3 $SCRIPTS_DIR/all_trials_read_send_to_db.py -i $infiles \
-                                                        -e $expname \
                                                         -c $joined_config \
                                                         -d $dbname \
                                                         -m $exp_dir/$expname.metrics.csv

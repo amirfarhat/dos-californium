@@ -1,42 +1,49 @@
 #!/bin/bash
 
-# Require that CF_HOME is set
-if [[ -z "$CF_HOME" ]]; then
-  echo "CF_HOME is empty or unset"  
+source $(find ~/*californium -name shell_utils.sh)
+
+usage() {
+  cat <<EOM
+  Usage:
+    $(basename $0) expname
+    expname - the name of the experiment that this script will process. Should have either
+              .zip file extension, or should have no extension at all.
+EOM
+}
+
+# Check that expected inputs are passed in to the script
+expname=$1
+if [[ -z "$expname" ]]; then
+  usage;
+  exit 1
+elif [[ $expname == *.* ]] && [[ $expname != *.zip ]]; then
+  usage;
   exit 1
 fi
 
-function check_present() {
-  file_to_check=$1
-  if [[ -z $file_to_check ]]; then
-    basename_file="$(basename $file_to_check)"
-    echo "Cannot find file $basename_file"
-    exit 1
+# Produce zipped and unzipped experiment names
+if [[ $expname == *.zip ]]; then
+  zipped_expname="$expname"
+  unzipped_expname=""${expname%.zip}""
+else
+  zipped_expname="$expname.zip"
+  unzipped_expname="$expname"
+fi
+
+# Scp experiment data from deter if not there already
+exp_dir="$DATA_DIR/$unzipped_expname"
+zipped_exp_file="$DATA_DIR/$zipped_expname"
+if [[ -z $zipped_exp_file ]]; then
+  echo "$zipped_expname not found locally. Fetching from deter..."
+  scp -r amirf@users.deterlab.net:$REMOTE_EXP_DIR/$zipped_expname $DATA_DIR
+  if [[ $? != 0 ]]; then
+    echo "SCP failed with code $?"
+    exit $?
   fi
-}
-
-# Construct paths to data and scripts
-DATA_DIR=$CF_HOME/deter/expdata/real/final
-SCRIPTS_DIR=$CF_HOME/deter/scripts
-TOPOS_DIR=$CF_HOME/deter/topologies
-
-mkdir -p $DATA_DIR
-
-# Construct full path to experiment by stripping zip suffix
-zipped_experiment_name=$1
-proper_experiment_name="${zipped_experiment_name%.zip}"
-exp_dir="$DATA_DIR/$proper_experiment_name"
-
-# Scp experiment data if not there already
-if [[ ! -d $exp_dir ]]; then
-  echo "${zipped_experiment_name%$ZIP_SUFFIX} not found. Fetching files..."
-  REMOTE_EXP_DIR="/proj/MIT-DoS/exp/coap-setup/deps/dos-californium/deter/expdata"
-  scp -r amirf@users.deterlab.net:$REMOTE_EXP_DIR/$zipped_experiment_name $DATA_DIR
 fi
 
 # | Step 0 | Unzip (if not already) experiment files
-cd $DATA_DIR
-unzip -n $zipped_experiment_name
+unzip -n $zipped_exp_file -d $DATA_DIR
 
 # | Step 1 | Consolidate configuration into a single config file
 check_present $TOPOS_DIR/coap_topology.ns
@@ -54,10 +61,10 @@ source $exp_dir/metadata/config.sh
 set +a
 
 # Compute nuumber of trials by subtracting single metadata directory
-num_dirs="$(ls $exp_dir | wc -l)" 
+num_dirs="$(find $exp_dir/* -maxdepth 0 -type d | wc -l)"
 num_trials="$(($num_dirs - 1))"
 
-python3 $SCRIPTS_DIR/consolidate_config.py -n $proper_experiment_name \
+python3 $SCRIPTS_DIR/consolidate_config.py -n $unzipped_expname \
                                            -t $TOPOS_DIR/coap_topology.ns \
                                            -e $exp_dir/metadata/expinfo.txt \
                                            -c $exp_dir/metadata/config.sh \
@@ -132,7 +139,7 @@ for D in $exp_dir/*; do
     done
     # Process all input files into one file
     # If not already processed before
-    outfile="$D/$proper_experiment_name.parquet"
+    outfile="$D/$unzipped_expname.parquet"
     httpoutfile="$D/http_response_codes.json"
     coapoutfile="$D/coap_response_codes.json"
     if [[ ! -f $outfile ]]; then
@@ -149,7 +156,7 @@ done
 
 # | Step 4 | Collect CPU and Memory usage from devices
 metric_infiles=""
-metric_outfile="$exp_dir/$proper_experiment_name.metrics.csv"
+metric_outfile="$exp_dir/$unzipped_expname.metrics.csv"
 for D in $exp_dir/*; do
   bd="$(basename $D)"
   if [[ -d $D && $bd != "metadata" ]]; then

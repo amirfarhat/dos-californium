@@ -1,63 +1,64 @@
 #!/bin/bash
 
-# Require that CF_HOME is set
-if [[ -z "$CF_HOME" ]]; then
-  echo "CF_HOME is empty or unset"  
+source $(find ~/*californium -name shell_utils.sh)
+
+usage() {
+  cat <<EOM
+  Usage:
+    $(basename $0) expname
+    expname - the name of the experiment whose data this script will clean. Can
+              only be the string name of an experiment with an already processed
+              data directory.
+EOM
+}
+# Check that expected inputs are passed in to the script
+expname=$1
+if [[ -z "$expname" ]]; then
+  usage;
+  exit 1
+elif [[ $expname == *.zip ]]; then
+  usage;
   exit 1
 fi
 
-log_remove() {
-  file=$1
-  if [[ -f $file ]]; then
-    rm $file
-    echo "Removed `basename $file`"
-  fi
-}
-
-DATA_DIR=$CF_HOME/deter/expdata/real/final
-SCRIPTS_DIR=$CF_HOME/deter/scripts
-
-experiment_name=$1
-
-# Construct full path to experiment directory
-exp_dir="$DATA_DIR/$experiment_name"
-
-cd $SCRIPTS_DIR
+# Check that the experiment's directory exists
+exp_dir="$DATA_DIR/$expname"
+check_directory_exists $exp_dir usage
 
 for D in $exp_dir/*; do
   if [[ -d $D ]]; then
-    for main_data_file in $D/$experiment_name.*; do
-      log_remove $main_data_file
+    for main_data_file in $D/$expname.*; do
+      log_remove_file $main_data_file
     done
 
     # # Processed dumps
     # for processed_dump in $D/*.out; do
-    #   log_remove $processed_dump
+    #   log_remove_file $processed_dump
     # done
     
     # Csvs
     for general_csv_file in $D/*.csv; do
-      log_remove $general_csv_file
+      log_remove_file $general_csv_file
     done
 
     # Json
     for json_file in $D/*.json; do
-      log_remove $json_file
+      log_remove_file $json_file
     done
 
     # Shell
     for shell_file in $D/*.sh; do
-      log_remove $shell_file
+      log_remove_file $shell_file
     done
 
     # Text
     for text_file in $D/*.txt; do
-      log_remove $text_file
+      log_remove_file $text_file
     done
 
     # Network Simulator
     for ns_file in $D/*.ns; do
-      log_remove $ns_file
+      log_remove_file $ns_file
     done
   fi
 done

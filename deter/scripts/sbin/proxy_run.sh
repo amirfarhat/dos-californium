@@ -49,8 +49,6 @@ fi
 ((sudo java $keylog_javaagent $proxy_args -jar $CF_PROXY_JAR $proxy_class) 2>&1 > $TMP_DATA/$PROXY_LOGNAME) &
 
 # Wait until proxy pid shows up
-# TODO temp variable while this until file shows up lsof -p PID | grep java_pid
-# java    29294 root    6u     unix 0x00000000da9de351       0t0   1575907 /tmp/.java_pid29294.tmp type=STREAM
 while [[ -z `pgrep java` ]]; do
   sleep 0.1
 done
