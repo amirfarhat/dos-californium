@@ -180,3 +180,8 @@ database_transformed_field_name_map_pl_type = {
   'http_response_code_desc': pl.datatypes.Utf8,
   'http_response_for_uri'  : pl.datatypes.Utf8,
 }
+
+def _cast_cols_from_type_map(type_map):
+  return [pl.col(col).cast(col_t) for col, col_t in type_map.items()]
+
+cast_to_database_types = _cast_cols_from_type_map(database_transformed_field_name_map_pl_type)

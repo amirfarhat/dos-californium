@@ -10,7 +10,7 @@ import polars as pl
 from deter_utils import Timer
 from deter_utils import pl_replace
 from deter_utils import pl_replace_predicates_to_values
-from deter_utils import database_transformed_field_name_map_pl_type
+from deter_utils import cast_to_database_types
 
 def parse_args():
   parser = argparse.ArgumentParser(description = '')
@@ -43,28 +43,28 @@ def batch_sql_function_calls(select_sql, num_calls):
   >>> batch_sql_function_calls("SELECT * FROM insert_into_coap(%s, %s, %s)", 1)
   'SELECT * FROM insert_into_coap(%s, %s, %s)'
 
-  >>> batch_sql_function_calls("SELECT * FROM insert_into_coap(%s, %s, %s)", 2)
-  'SELECT * FROM insert_into_coap(%s, %s, %s) UNION SELECT * FROM insert_into_coap(%s, %s, %s)'
+  >>> batch_sql_function_calls("SELECT * FROM insert_into_node(%s, %s, %s)", 2)
+  'SELECT * FROM insert_into_node(%s, %s, %s) UNION ALL SELECT * FROM insert_into_node(%s, %s, %s)'
 
-  >>> batch_sql_function_calls("SELECT * FROM insert_into_coap(%s, %s, %s)", 4)
-  'SELECT * FROM insert_into_coap(%s, %s, %s) UNION SELECT * FROM insert_into_coap(%s, %s, %s) UNION SELECT * FROM insert_into_coap(%s, %s, %s) UNION SELECT * FROM insert_into_coap(%s, %s, %s)'
+  >>> batch_sql_function_calls("SELECT * FROM insert_into_deployed_node(%s, %s)", 4)
+  'SELECT * FROM insert_into_deployed_node(%s, %s) UNION ALL SELECT * FROM insert_into_deployed_node(%s, %s) UNION ALL SELECT * FROM insert_into_deployed_node(%s, %s) UNION ALL SELECT * FROM insert_into_deployed_node(%s, %s)'
   """
-  unioned_select_sql = """UNION """ + select_sql
+  # Here, we need to use ALL after the UNION so that postgres
+  # will not reorder the outputs of the batch query. See:
+  # "The Postgres implementation for UNION ALL returns 
+  # values in the sequence as appended".
+  # Source: https://stackoverflow.com/questions/31975969/is-order-preserved-after-union-in-postgresql
+  unioned_select_sql = """UNION ALL """ + select_sql
+
   sql_parts = [None for _ in range(num_calls)]
   sql_parts[0] = select_sql
   for i in range(1, num_calls):
     sql_parts[i] = unioned_select_sql
   return " ".join(sql_parts)
 
-def read_data(node_name_map_ids):
-  # Split ID maps into node ID and deployed node ID
-  # TODO is there a way to have these maps unsplit on input?
-  nname_map_node_id = {nname: str(node_name_map_ids[nname]["node_id"]) for nname in node_name_map_ids}
-  nname_map_dnid = {nname: str(node_name_map_ids[nname]["dnid"]) for nname in node_name_map_ids}
-
-  # *Lazily* read each trial's data
+def read_data(node_name_map_node_id, node_name_map_dnid):
+  # *Lazily* read each trial's data into a separate dataframe
   infiles = args.infiles.rstrip(";").split(";")
-
   num_trials = len(infiles)
   trial_dfs = [None for _ in range(num_trials)]
   assert len(infiles) == num_trials == len(trial_dfs)
@@ -85,14 +85,13 @@ def read_data(node_name_map_ids):
 
     # Replace string node names with database IDs
     .with_columns([
-      pl_replace("node_type", nname_map_dnid),
-      pl_replace("message_source", nname_map_node_id),
-      pl_replace("message_destination", nname_map_node_id),
+      pl_replace("node_type", node_name_map_dnid),
+      pl_replace("message_source", node_name_map_node_id),
+      pl_replace("message_destination", node_name_map_node_id),
     ])
 
     # Cast column types to expected db types
-    # TODO revisist the long array
-    .with_columns([pl.col(col).cast(col_t) for col, col_t in database_transformed_field_name_map_pl_type.items()])
+    .with_columns(cast_to_database_types)
   )
 
   return df
@@ -137,22 +136,19 @@ def insert_node_table(cfg, node_name_map_ids):
   node_name_and_details = sorted(cfg["hosts"].items())
   sql_args = [(name, details["hardware"], details["operating_system"]) \
                 for name, details in node_name_and_details]
-  sql_args = sum(sql_args, ())      
+  sql_arg_stream = sum(sql_args, ())      
 
   # Batch the insertions and node ID fetches in a single SQL statement
-  select_sql = """SELECT insert_into_node(%s, %s, %s)"""
+  select_sql = """SELECT * FROM insert_into_node(%s, %s, %s)"""
   sql = batch_sql_function_calls(select_sql, len(node_name_and_details))
-
-  # Execute the batch insertion and fetch node IDs returned
-  cur.execute(sql, sql_args)
+  cur.execute(sql, sql_arg_stream)
   node_ids = cur.fetchall()
+  con.commit()
 
   for (node_name, _), (node_id,) in zip(node_name_and_details, node_ids):
     # Record this node's node_id
     node_name_map_ids.setdefault(node_name, dict())
     node_name_map_ids[node_name]["node_id"] = node_id
-
-  con.commit()
 
 def insert_deployed_node_table(cfg, node_name_map_ids):
   """
@@ -167,25 +163,24 @@ def insert_deployed_node_table(cfg, node_name_map_ids):
   # Batch the insertions and node ID fetches in a single SQL statement
   select_sql = """SELECT insert_into_deployed_node(%s, %s)"""
   sql = batch_sql_function_calls(select_sql, len(node_name_map_ids))
-
-  # Execute the batch insertion and fetch deployed node IDs returned
   cur.execute(sql, sql_args)
   deployed_node_ids = cur.fetchall()
+  con.commit()
 
   for (node_name, _), (dnid,) in zip(node_name_and_ids, deployed_node_ids):
     # Record this node's dnid
     node_name_map_ids[node_name]["dnid"] = dnid
-  
-  con.commit()
 
-def insert_metadata(cfg, node_name_map_ids):
+def insert_metadata(cfg):
   """
   Insert metadata of this experiment to the database. Metadata includes
   configuration values and nodes which participated in the experiment.
   """
+  node_name_map_ids = dict()
   insert_experiment_table(cfg)
   insert_node_table(cfg, node_name_map_ids)
   insert_deployed_node_table(cfg, node_name_map_ids)
+  return node_name_map_ids
 
 def insert_coap(df, log=False):
   """
@@ -448,10 +443,9 @@ def insert_event(df, log=False):
       c.execute("""COMMIT;""")
     con.commit()
 
-def insert_metrics(node_name_map_ids):
+def insert_metrics(node_name_map_dnid):
   # Alias server to origin server
-  node_name_map_ids["server"] = {**node_name_map_ids["originserver"]}
-  nname_map_dnid = {nname: str(node_name_map_ids[nname]["dnid"]) for nname in node_name_map_ids}
+  node_name_map_dnid["server"] = node_name_map_dnid["originserver"]
 
   metrics_df = (
     pl
@@ -466,7 +460,7 @@ def insert_metrics(node_name_map_ids):
 
     # Replace observer id with deployed node IDs from the DB
     .with_columns([
-      pl_replace("observer_id", nname_map_dnid)
+      pl_replace("observer_id", node_name_map_dnid)
     ])
     
     .collect()
@@ -508,32 +502,33 @@ def check_experiment_not_inserted(cfg):
     c.execute(f"""SELECT COUNT(*) FROM experiment WHERE exp_id = '{cfg["expname"]}'""")
     con.commit()
     if c.fetchone()[0] > 0:
-      raise Exception(f"""Experiment {cfg["expname"]} is already in the database {args.dbname}""")
+      raise Exception(f"Experiment {cfg['expname']} is already in the database")
 
 def main():
   # Read config into dict
   with open(args.config, 'r') as f:
     cfg = json.load(f)
 
-  # Check that the experiment is not already in the database
+  # # Check that the experiment is not already in the database
   # check_experiment_not_inserted(cfg)
 
   # Insert metadata & populate information about 
   # each node's IDs in tables
-  node_name_map_ids = dict()
   with Timer("Inserting metadata"):
-    insert_metadata(cfg, node_name_map_ids)
-
-  # Read the actual experiment data into a typed dataframe
-  with Timer("Reading data"):
-    df = read_data(node_name_map_ids)
-
-  # Start with coap messages, split into chunks
-  insert_packets(df)
+    node_name_map_ids = insert_metadata(cfg)
+    node_name_map_node_id = {node_name: node_name_map_ids[node_name]["node_id"] for node_name in node_name_map_ids}
+    node_name_map_dnid = {node_name: node_name_map_ids[node_name]["dnid"] for node_name in node_name_map_ids}
 
   # Insert metrics recorded during the experiment
   with Timer("Inserting metrics"):
-    insert_metrics(node_name_map_ids)
+    insert_metrics(node_name_map_dnid)
+
+  # Read the actual experiment data into a typed dataframe
+  with Timer("Reading data"):
+    df = read_data(node_name_map_node_id, node_name_map_dnid)
+
+  # Start with coap messages, split into chunks
+  insert_packets(df)
 
   # Run ANALYZE for better read performance later
   with Timer("Running analyze"):
@@ -549,4 +544,3 @@ if __name__ == "__main__":
   except Exception as e:
     con.close()
     raise e
-  # TODO add finally with a con close
