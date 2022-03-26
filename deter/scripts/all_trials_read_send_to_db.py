@@ -17,8 +17,6 @@ def parse_args():
 
   parser.add_argument('-i', '--infiles', dest='infiles',
                       help='', action='store', type=str)
-  parser.add_argument('-e', '--expname', dest='expname',
-                      help='', action='store', type=str)
   parser.add_argument('-c', '--config', dest='config',
                       help='', action='store', type=str)
   parser.add_argument('-d', '--dbname', dest='dbname',
@@ -50,9 +48,9 @@ def batch_sql_function_calls(select_sql, num_calls):
   'SELECT * FROM insert_into_deployed_node(%s, %s) UNION ALL SELECT * FROM insert_into_deployed_node(%s, %s) UNION ALL SELECT * FROM insert_into_deployed_node(%s, %s) UNION ALL SELECT * FROM insert_into_deployed_node(%s, %s)'
   """
   # Here, we need to use ALL after the UNION so that postgres
-  # will not reorder the outputs of the batch query. See:
-  # "The Postgres implementation for UNION ALL returns 
-  # values in the sequence as appended".
+  # will not reorder the outputs of the batch query. "The 
+  # Postgres implementation for UNION ALL returns  values 
+  # in the sequence as appended".
   # Source: https://stackoverflow.com/questions/31975969/is-order-preserved-after-union-in-postgresql
   unioned_select_sql = """UNION ALL """ + select_sql
 
@@ -63,19 +61,28 @@ def batch_sql_function_calls(select_sql, num_calls):
   return " ".join(sql_parts)
 
 def read_data(node_name_map_node_id, node_name_map_dnid):
-  # *Lazily* read each trial's data into a separate dataframe
+  """
+  Read data in from all specified input files and return
+  the result of concatenating the data together with some
+  initial processing.
+  """
   infiles = args.infiles.rstrip(";").split(";")
   num_trials = len(infiles)
+
+  # *Lazily* read each trial's data into a separate dataframe
   trial_dfs = [None for _ in range(num_trials)]
   assert len(infiles) == num_trials == len(trial_dfs)
   for i, infile in enumerate(infiles):
-    df = pl.scan_parquet(infile)
-    df = df.with_columns([
-      pl.lit(-1).alias("cmci"),
-      pl.lit(-1).alias("hmci"),
-      pl.lit(-1).alias("message_id"),
-      pl.lit(i + 1).alias("trial"),
-    ])
+    df = (
+      pl
+      .scan_parquet(infile)
+      .with_columns([
+        pl.lit(-1).alias("cmci"),
+        pl.lit(-1).alias("hmci"),
+        pl.lit(-1).alias("message_id"),
+        pl.lit(i + 1).alias("trial"),
+      ])
+    )
     trial_dfs[i] = df
 
   df = (
@@ -444,6 +451,9 @@ def insert_event(df, log=False):
     con.commit()
 
 def insert_metrics(node_name_map_dnid):
+  """
+  Insert the experiment's metrics into the DB.
+  """
   # Alias server to origin server
   node_name_map_dnid["server"] = node_name_map_dnid["originserver"]
 
@@ -509,8 +519,8 @@ def main():
   with open(args.config, 'r') as f:
     cfg = json.load(f)
 
-  # # Check that the experiment is not already in the database
-  # check_experiment_not_inserted(cfg)
+  # Check that the experiment is not already in the database
+  check_experiment_not_inserted(cfg)
 
   # Insert metadata & populate information about 
   # each node's IDs in tables
@@ -539,6 +549,7 @@ def main():
 if __name__ == "__main__":
   import doctest
   doctest.testmod()
+  
   try:
     main()
   except Exception as e:

@@ -1,12 +1,8 @@
 import os
-import csv
-import sys
 import json
 import argparse
 
 from collections import defaultdict
-
-from pprint import pprint
 
 def parse_args():
   parser = argparse.ArgumentParser(description = '')

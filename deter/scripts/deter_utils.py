@@ -2,6 +2,10 @@
 import time
 import polars as pl
 
+### 
+### Timer
+### 
+
 class TimerException(Exception):
   """
   Exceptions specific to instances of the `Timer` below
@@ -44,31 +48,9 @@ class Timer:
     if self.log:
       print(self.stop())
 
-def pl_replace_predicates_to_values(column, predicates, values):
-  """
-  Produces an expression for polars to replace a sequence of `predicates` 
-  to corresponding `values` and name the series a specific `column`. Importantly,
-  if the predicates don't match, the column value is kept unchanged.
-  """
-  branch = pl.when(predicates[0]).then(values[0])
-  for p, v in zip(predicates[1:], values[1:]):
-    branch = branch.when(p).then(v)
-  return branch.otherwise(pl.col(column)).alias(column)
-
-def pl_replace_from_to(column, from_, to_):
-  """
-  Produces an expression for polars to replace a `from` values
-  to `to` values inside a specified column.
-  """
-  branch = pl.when(pl.col(column) == from_[0]).then(to_[0])
-  for (from_value, to_value) in zip(from_, to_):
-    branch = branch.when(pl.col(column) == from_value).then(to_value)
-  return branch.otherwise(pl.col(column)).alias(column)
-
-def pl_replace(column, mapping):
-  from_ = [k for k, _ in sorted(mapping.items())]
-  to_   = [v for _, v in sorted(mapping.items())]
-  return pl_replace_from_to(column, from_, to_)
+### 
+### Data columns and associated types
+### 
 
 # Expect data rows read in to have these exact types
 # when reading data in. These will later be converted
@@ -148,8 +130,8 @@ transformed_field_name_map_pl_type = {
   'http_response_for_uri'  : pl.datatypes.Utf8,
 }
 
-# Message marker may not be ready during processing, so
-# we exclude it during processing.
+# Message marker is not be ready during processing, 
+# until the very end. So we exclude it during processing.
 pre_final_transformed_field_name_map_pl_type = {f:t for f, t in transformed_field_name_map_pl_type.items() if f not in {"message_marker"}}
 
 field_names = set(transformed_field_name_map_pl_type.keys())
@@ -181,7 +163,51 @@ database_transformed_field_name_map_pl_type = {
   'http_response_for_uri'  : pl.datatypes.Utf8,
 }
 
+assert database_transformed_field_name_map_pl_type.keys() == transformed_field_name_map_pl_type.keys()
+
+### 
+### Polars condition value replacement
+### 
+
+def pl_replace_predicates_to_values(column, predicates, values):
+  """
+  Produces an expression for polars to replace a sequence of `predicates` 
+  to corresponding `values` and name the series a specific `column`. Importantly,
+  if the predicates don't match, the column value is kept unchanged.
+  """
+  branch = pl.when(predicates[0]).then(values[0])
+  for p, v in zip(predicates[1:], values[1:]):
+    branch = branch.when(p).then(v)
+  return branch.otherwise(pl.col(column)).alias(column)
+
+def pl_replace_from_to(column, from_, to_):
+  """
+  Produces an expression for polars to replace a `from` values
+  to `to` values inside a specified column.
+  """
+  branch = pl.when(pl.col(column) == from_[0]).then(to_[0])
+  for (from_value, to_value) in zip(from_, to_):
+    branch = branch.when(pl.col(column) == from_value).then(to_value)
+  return branch.otherwise(pl.col(column)).alias(column)
+
+def pl_replace(column, mapping):
+  from_ = [k for k, _ in sorted(mapping.items())]
+  to_   = [v for _, v in sorted(mapping.items())]
+  return pl_replace_from_to(column, from_, to_)
+
+### 
+### Polars column manipulation
+### 
+
 def _cast_cols_from_type_map(type_map):
-  return [pl.col(col).cast(col_t) for col, col_t in type_map.items()]
+  """
+  Query to cast all columns specified in the `type_map`
+  to their specified type, without creating extra columns.
+  """
+  return [pl.col(col).cast(col_t).alias(col) for col, col_t in type_map.items()]
 
 cast_to_database_types = _cast_cols_from_type_map(database_transformed_field_name_map_pl_type)
+cast_to_pre_final_types = _cast_cols_from_type_map(pre_final_transformed_field_name_map_pl_type)
+
+def nullify_columns(columns):
+  return [pl.lit(None).alias(col) for col in columns]

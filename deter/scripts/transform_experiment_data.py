@@ -1,15 +1,13 @@
 import json
 import argparse
 
-from pprint import pprint
-
-from nbformat import read
 from deter_utils import Timer
 from deter_utils import pl_replace
 from deter_utils import wireshark_data_row_name_map_pl_type
 from deter_utils import wireshark_data_row_name_map_field_name
 from deter_utils import transformed_field_name_map_pl_type
-from deter_utils import pre_final_transformed_field_name_map_pl_type
+from deter_utils import cast_to_pre_final_types
+from deter_utils import nullify_columns
 
 import polars as pl
 
@@ -60,7 +58,6 @@ coap_code_map_human_readable = {
 
   # Everything else is reserved
 }
-
 
 def parse_args():
   parser = argparse.ArgumentParser(description = '')
@@ -160,9 +157,7 @@ def transform_http_data(df, coap_columns):
   # it is possible to nullofy and cast in the same step, after the main data
   # transformation, for http it seems necessary to nullify, then transform,
   # then cast. It is unclear why.
-  nullify_coap_columns = [pl.lit(None).alias(column_name) \
-                            for column_name in coap_columns]
-  hdf = hdf.with_columns(nullify_coap_columns)
+  hdf = hdf.with_columns(nullify_columns(coap_columns))
 
   hdf = hdf.with_columns([
     # Convert http request to a boolean
@@ -179,9 +174,7 @@ def transform_http_data(df, coap_columns):
   ])
 
   # Cast the dataframe to the final expected types
-  # TODO cast to types and the null check can be refactored into a helper
-  cast_to_final_types = [pl.col(col).cast(col_type).alias(col) for col, col_type in pre_final_transformed_field_name_map_pl_type.items()]
-  hdf = hdf.with_columns(cast_to_final_types)
+  hdf = hdf.with_columns(cast_to_pre_final_types)
 
   return hdf
 
@@ -209,9 +202,7 @@ def transform_coap_data(df, http_columns):
   ])
 
   # Nullify values in http columns and cast the dataframe to the final expected types
-  nullify_http_columns = [pl.lit(None).alias(col) for col in http_columns]
-  cast_to_final_types = [pl.col(col).cast(col_type).alias(col) for col, col_type in pre_final_transformed_field_name_map_pl_type.items()]
-  cdf = cdf.with_columns(nullify_http_columns + cast_to_final_types)
+  cdf = cdf.with_columns(nullify_columns(http_columns) + cast_to_pre_final_types)
 
   return cdf
 
