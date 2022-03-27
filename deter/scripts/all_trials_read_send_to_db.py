@@ -1,4 +1,5 @@
 import io
+import sys
 import json
 import argparse
 
@@ -507,12 +508,11 @@ def run_analyze():
     c.execute("ANALYZE")
     con.commit()
 
-def check_experiment_not_inserted(cfg):
+def experiment_is_already_inserted(cfg):
   with con.cursor() as c:
     c.execute(f"""SELECT COUNT(*) FROM experiment WHERE exp_id = '{cfg["expname"]}'""")
     con.commit()
-    if c.fetchone()[0] > 0:
-      raise Exception(f"Experiment {cfg['expname']} is already in the database")
+    return c.fetchone()[0] > 0
 
 def main():
   # Read config into dict
@@ -520,7 +520,9 @@ def main():
     cfg = json.load(f)
 
   # Check that the experiment is not already in the database
-  check_experiment_not_inserted(cfg)
+  if experiment_is_already_inserted(cfg):
+    con.close()
+    sys.exit(0)
 
   # Insert metadata & populate information about 
   # each node's IDs in tables
@@ -549,7 +551,7 @@ def main():
 if __name__ == "__main__":
   import doctest
   doctest.testmod()
-  
+
   try:
     main()
   except Exception as e:

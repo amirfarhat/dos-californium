@@ -80,7 +80,6 @@ sudo touch $dummy_keylogfile
 sudo chmod 666 $dummy_keylogfile
 
 # | Step 2 | Parse (if not exists) tcpdumps
-cd $SCRIPTS_DIR
 pids=()
 for D in $exp_dir/*; do
   bd="$(basename $D)"
@@ -107,14 +106,14 @@ for D in $exp_dir/*; do
         fi
 
         # Transform the tcpdump fully for coap & http
-        (./process_tcpdump.sh $dump_file $processed_dump_file $keylog_file) &
+        (bash $SCRIPTS_DIR/process_tcpdump.sh $dump_file $processed_dump_file $keylog_file) &
         pids+=($!)
       fi
 
       if [[ ! -f $processed_connections_file ]]; then
         echo "Processing tcp in $bd/`basename $dump_file`..."
         # Compress key TCP connections events
-        (./process_connections.sh $dump_file $processed_connections_file $keylog_file) &
+        (bash $SCRIPTS_DIR/process_connections.sh $dump_file $processed_connections_file $keylog_file) &
         pids+=($!)
        fi
     done
@@ -144,7 +143,7 @@ for D in $exp_dir/*; do
     coapoutfile="$D/coap_response_codes.json"
     if [[ ! -f $outfile ]]; then
       echo "Processing tcpdumps in $bd..."
-      (time python3 transform_experiment_data.py -i $infiles -o $outfile -c $joined_config -r $httpoutfile -a $coapoutfile) &
+      (python3 $SCRIPTS_DIR/transform_experiment_data.py -i $infiles -o $outfile -c $joined_config -r $httpoutfile -a $coapoutfile) &
       pids+=($!)
     fi
   fi
@@ -167,7 +166,7 @@ for D in $exp_dir/*; do
     done
   fi
 done
-python3 metric_processor.py -i $metric_infiles -o $metric_outfile
+python3 $SCRIPTS_DIR/metric_processor.py -i $metric_infiles -o $metric_outfile
 
 # Finally, log some statistics
 function log_tcpdump_stats() {

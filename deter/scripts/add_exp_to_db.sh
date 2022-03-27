@@ -1,74 +1,59 @@
 #!/bin/bash
 
+source $(find ~/*californium -name shell_utils.sh)
+
 usage() {
   cat <<EOM
   Usage:
-    $(basename $0) expname dbname
-    expname - the name of the experiment with processed data to insert into the DB dbname
-    dbname  - the name of the database we should insert expname's data into
+    $(basename $0) -e exp_name -d db_name -n no_bootstrap
+    exp_name     - the name of the experiment with processed data to insert into the DB db_name
+    db_name      - the name of the database we should insert exp_name's data into
+    no_bootstrap - flag which specifies whether this script should create and bootstrap the DB
 EOM
-  exit 0
-}
+} >&2
 
-check_present() {
-  file_to_check=$1
-  if [[ -z $file_to_check ]]; then
-    basename_file="$(basename $file_to_check)"
-    echo "Cannot find file $basename_file"
-    exit 1
-  fi
-}
+# Parse command line arguments
+no_bootstrap=0
+while getopts e:d:n opt; do
+  case $opt in
+    e) exp_name=$OPTARG;;
+    d) db_name=$OPTARG;;
+    n) no_bootstrap=1;;
+    *) usage
+       exit 1;;
+  esac
+done
 
 # Check that expected inputs are passed in to script
-expname=$1
-dbname=$2
-if [[ -z "$expname" ]] || [[ -z "$dbname" ]]; then
+if [[ -z "$exp_name" ]] || [[ -z "$db_name" ]] || [[ -z "$no_bootstrap" ]]; then
   usage;
   exit 1
 fi
 
-# Require that CF_HOME is set
-if [[ -z "$CF_HOME" ]]; then
-  echo "CF_HOME is empty or unset"  
-  exit 1
+# Check that the experiment's directory exists
+exp_dir="$DATA_DIR/$exp_name"
+check_directory_exists $exp_dir usage
+
+joined_config_path="$exp_dir/metadata/config.json"
+check_present joined_config_path
+
+metrics_file_path="$exp_dir/$exp_name.metrics.csv"
+check_present metrics_file_path
+
+if [[ $no_bootstrap == 0 ]]; then
+  bootstrap_db $db_name
 fi
-
-# Construct paths to data and scripts
-DATA_DIR=$CF_HOME/deter/expdata/real/final
-SCRIPTS_DIR=$CF_HOME/deter/scripts
-
-# Find the directory containing this experiment
-exp_dir="$DATA_DIR/$1"
-if [[ ! -d $exp_dir ]]; then
-  echo "Could not find experiment directory $exp_dir"
-  exit 1
-fi
-expname=$(basename $exp_dir)
-
-check_present $SCRIPTS_DIR/functions_and_procedures.sql
-check_present $exp_dir/metadata/config.json
-
-functions_and_procedures_path=$SCRIPTS_DIR/sql/functions_and_procedures.sql
-joined_config=$exp_dir/metadata/config.json
-
-# Create database if not exists
-(sudo su postgres -c "psql template1 -c 'CREATE DATABASE ${dbname}'" || true) > /dev/null 2>&1
-echo "Created DB ${dbname}"
-
-# Bootstrap DB for experiments
-python3 $SCRIPTS_DIR/bootstrap_db.py -d $dbname \
-                                     -p $functions_and_procedures_path
 
 # Send each trial's data to the DB
 infiles=""
 for D in $exp_dir/*; do
   bd="$(basename $D)"
   if [[ -d $D && $bd != "metadata" ]]; then
-    inf="$D/$expname.parquet"
+    inf="$D/$exp_name.parquet"
     infiles+="$inf;"
   fi
 done
-time python3 $SCRIPTS_DIR/all_trials_read_send_to_db.py -i $infiles \
-                                                        -c $joined_config \
-                                                        -d $dbname \
-                                                        -m $exp_dir/$expname.metrics.csv
+python3 $SCRIPTS_DIR/all_trials_read_send_to_db.py -i $infiles \
+                                                   -c $joined_config_path \
+                                                   -d $db_name \
+                                                   -m $metrics_file_path

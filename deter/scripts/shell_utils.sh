@@ -31,6 +31,16 @@ check_directory_exists() {
   fi
 }
 
+DATA_DIR=$CF_HOME/deter/expdata/real/final
+SCRIPTS_DIR=$CF_HOME/deter/scripts
+TOPOS_DIR=$CF_HOME/deter/topologies
+REMOTE_EXP_DIR="/proj/MIT-DoS/exp/coap-setup/deps/dos-californium/deter/expdata"
+
+functions_and_procedures_path="$SCRIPTS_DIR/sql/functions_and_procedures.sql"
+check_present functions_and_procedures_path
+
+mkdir -p $DATA_DIR
+
 # Helper to verbosely remove an existing file
 log_remove_file() {
   file=$1
@@ -40,10 +50,19 @@ log_remove_file() {
   fi
 }
 
-DATA_DIR=$CF_HOME/deter/expdata/real/final
-SCRIPTS_DIR=$CF_HOME/deter/scripts
-TOPOS_DIR=$CF_HOME/deter/topologies
+bootstrap_db() {
+  db_name=$1
 
-REMOTE_EXP_DIR="/proj/MIT-DoS/exp/coap-setup/deps/dos-californium/deter/expdata"
+  # Create database if not exists
+  (sudo su postgres -c "psql template1 -c 'CREATE DATABASE ${db_name}'" || true) > /dev/null 2>&1
+  echo "Created DB ${db_name}"
 
-mkdir -p $DATA_DIR
+  # Bootstrap DB for experiments
+  python3 $SCRIPTS_DIR/bootstrap_db.py -d $db_name \
+                                       -p $functions_and_procedures_path
+}
+
+quietly_bootstrap_db() {
+  db_name=$1
+  bootstrap_db $db_name 1> /dev/null
+}

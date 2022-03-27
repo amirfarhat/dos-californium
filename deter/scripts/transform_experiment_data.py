@@ -1,3 +1,4 @@
+from cmath import inf
 import json
 import argparse
 
@@ -294,8 +295,24 @@ def transform_and_write_data(infile_list, ip_addr_map_host_name):
   device_name_map_file = get_device_name_map_file(infile_list)
 
   with Timer("Lazily reading device data"):
+    # We need to filter out empty input files so the dataframe
+    # does not crash when reading data lazily or eagerly
+    non_empty_device_name_map_file = dict()
+    for device_name, infile in device_name_map_file.items():
+      with open(infile, "r") as f:
+        line_count = 0
+        for line in f:
+          line_count += 1
+          if line_count > 1:
+            # File has data other than header
+            non_empty_device_name_map_file[device_name] = infile
+            break
+        else:
+          # If the break never executes, this file is empty
+          pass
+    
     lazy_dfs = [read_data_lazily(device_name, infile, ip_addr_map_host_name) \
-                  for device_name, infile in device_name_map_file.items()]
+                  for device_name, infile in non_empty_device_name_map_file.items()]
 
   with Timer("Coalescing all device data"):
     df = pl.concat(lazy_dfs)
