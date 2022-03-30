@@ -130,7 +130,8 @@ def insert_experiment_table(cfg):
       %(request_retry_interval)s,
       %(reuse_connections)s,
       %(run_proxy_with_dtls)s,
-      %(run_proxy_with_https)s
+      %(run_proxy_with_https)s,
+      %(run_attacker)s
     );
   """
   cur.execute(sql, cfg)
@@ -504,15 +505,15 @@ def insert_packets(df):
   return df
 
 def run_analyze():
-  with con.cursor() as c:
-    c.execute("ANALYZE")
-    con.commit()
+  with con:
+    with con.cursor() as c:
+      c.execute("ANALYZE")
 
 def experiment_is_already_inserted(cfg):
-  with con.cursor() as c:
-    c.execute(f"""SELECT COUNT(*) FROM experiment WHERE exp_id = '{cfg["expname"]}'""")
-    con.commit()
-    return c.fetchone()[0] > 0
+  with con:
+    with con.cursor() as c:
+      c.execute(f"""SELECT COUNT(*) FROM experiment WHERE exp_id = '{cfg["expname"]}'""")
+      return c.fetchone()[0] > 0
 
 def main():
   # Read config into dict
@@ -520,9 +521,10 @@ def main():
     cfg = json.load(f)
 
   # Check that the experiment is not already in the database
-  if experiment_is_already_inserted(cfg):
-    con.close()
-    sys.exit(0)
+  # if experiment_is_already_inserted(cfg):
+  #   print(f"Experiment {cfg['expname']} is already in database {args.dbname}")
+  #   con.close()
+  #   sys.exit(0)
 
   # Insert metadata & populate information about 
   # each node's IDs in tables

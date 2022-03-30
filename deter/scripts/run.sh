@@ -80,7 +80,7 @@ mkdir -p $metadata
 # Record copies of: 1) config, 2) expinfo, 3) topology
 cat $SCRIPTS_HOME/config.sh > $metadata/config.sh
 expinfo -a MIT-DoS coap-setup > $metadata/expinfo.txt
-cat $TOPOLOGIES_HOME/coap_topology.ns > $metadata/topo.ns
+cat $EXP_TOPOLOGY_FILE > $metadata/topo.ns
 
 # Launch experiment runs sequentially
 for ((i=1; i<=$_N; i++)); do

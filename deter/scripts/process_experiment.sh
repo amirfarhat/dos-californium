@@ -46,7 +46,7 @@ fi
 unzip -n $zipped_exp_file -d $DATA_DIR
 
 # | Step 1 | Consolidate configuration into a single config file
-check_present $TOPOS_DIR/coap_topology.ns
+check_present $exp_dir/metadata/topo.ns
 check_present $exp_dir/metadata/expinfo.txt
 check_present $exp_dir/metadata/config.sh
 
@@ -65,7 +65,7 @@ num_dirs="$(find $exp_dir/* -maxdepth 0 -type d | wc -l)"
 num_trials="$(($num_dirs - 1))"
 
 python3 $SCRIPTS_DIR/consolidate_config.py -n $unzipped_expname \
-                                           -t $TOPOS_DIR/coap_topology.ns \
+                                           -t $exp_dir/metadata/topo.ns \
                                            -e $exp_dir/metadata/expinfo.txt \
                                            -c $exp_dir/metadata/config.sh \
                                            -r $num_trials \

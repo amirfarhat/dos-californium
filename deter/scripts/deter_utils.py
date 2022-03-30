@@ -3,6 +3,11 @@ import time
 import polars as pl
 
 ### 
+### Constants and Regexs
+### 
+ipv4_regex = r"^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$"
+
+### 
 ### Timer
 ### 
 
@@ -206,8 +211,17 @@ def _cast_cols_from_type_map(type_map):
   """
   return [pl.col(col).cast(col_t).alias(col) for col, col_t in type_map.items()]
 
+def _lowercase_string_columns(type_map):
+  """
+  Query to lowercase all the values in string columns
+  """
+  return [pl.col(col).str.to_lowercase().alias(col) \
+            for col, col_t in type_map.items() \
+              if col_t == pl.datatypes.Utf8]
+
 cast_to_database_types = _cast_cols_from_type_map(database_transformed_field_name_map_pl_type)
 cast_to_pre_final_types = _cast_cols_from_type_map(pre_final_transformed_field_name_map_pl_type)
+lowercase_transformed_data = _lowercase_string_columns(transformed_field_name_map_pl_type)
 
 def nullify_columns(columns):
   return [pl.lit(None).alias(col) for col in columns]

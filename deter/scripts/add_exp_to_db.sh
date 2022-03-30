@@ -6,7 +6,8 @@ usage() {
   cat <<EOM
   Usage:
     $(basename $0) -e exp_name -d db_name -n no_bootstrap
-    exp_name     - the name of the experiment with processed data to insert into the DB db_name
+    exp_name     - the name of the experiment with processed data to insert into the DB db_name. 
+                   May be a directory name or a zipped file name.
     db_name      - the name of the database we should insert exp_name's data into
     no_bootstrap - flag which specifies whether this script should create and bootstrap the DB
 EOM
@@ -29,6 +30,16 @@ if [[ -z "$exp_name" ]] || [[ -z "$db_name" ]] || [[ -z "$no_bootstrap" ]]; then
   usage;
   exit 1
 fi
+
+# Set experiment name to be the unzipped version
+if [[ $exp_name == *.zip ]]; then
+  zipped_exp_name="$exp_name"
+  unzipped_exp_name=""${exp_name%.zip}""
+else
+  zipped_exp_name="$exp_name.zip"
+  unzipped_exp_name="$exp_name"
+fi
+exp_name=$unzipped_exp_name
 
 # Check that the experiment's directory exists
 exp_dir="$DATA_DIR/$exp_name"

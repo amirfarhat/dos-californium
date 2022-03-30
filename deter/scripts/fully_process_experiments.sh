@@ -57,11 +57,26 @@ fi
 exp_dirs_found=()
 exp_names_found=()
 for e in ${exp_name_inputs_array[@]}; do
-  for exp_dir in $(find $DATA_DIR/$e -maxdepth 0 -type d); do
-    exp_name=$(basename $exp_dir)
-    exp_dirs_found+=($exp_dir)
-    exp_names_found+=($exp_name)
-  done
+  num_dirs_found=$(find $DATA_DIR/$e -maxdepth 0 -type d 2> /dev/null | wc -l)
+  if [[ $num_dirs_found == 0 ]]; then
+    num_zips_found=$(find $DATA_DIR/$e.zip -maxdepth 0 -type f 2> /dev/null | wc -l)
+    if [[ $num_zips_found == 0 ]]; then
+      echo "Experiment $e not found. Fetch the experiment from deter using the no_fetch_experiments flag"
+      exit 1
+    else
+      for exp_zip in $(find $DATA_DIR/$e.zip -maxdepth 0 -type f); do
+        exp_name=$(basename $exp_zip)
+        exp_dirs_found+=($exp_zip)
+        exp_names_found+=($exp_name)
+      done
+    fi
+  else
+    for exp_dir in $(find $DATA_DIR/$e -maxdepth 0 -type d); do
+      exp_name=$(basename $exp_dir)
+      exp_dirs_found+=($exp_dir)
+      exp_names_found+=($exp_name)
+    done
+  fi
 done
 
 # Prompt the user whether they wish to process all experiments
@@ -127,6 +142,10 @@ time (
     pids+=($!)
   done
   for pid in "${pids[@]}"; do
+    # Waiting on a specific PID makes the wait command return with the exit
+    # status of that process. Because of the 'set -e' setting, any exit status
+    # other than zero causes the current shell to terminate with that exit
+    # status as well.
     wait $pid
   done
 )
@@ -143,6 +162,10 @@ time (
     pids+=($!)
   done
   for pid in "${pids[@]}"; do
+    # Waiting on a specific PID makes the wait command return with the exit
+    # status of that process. Because of the 'set -e' setting, any exit status
+    # other than zero causes the current shell to terminate with that exit
+    # status as well.
     wait $pid
   done
 )

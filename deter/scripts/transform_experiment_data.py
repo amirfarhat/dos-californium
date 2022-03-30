@@ -1,4 +1,3 @@
-from cmath import inf
 import json
 import argparse
 
@@ -6,9 +5,10 @@ from deter_utils import Timer
 from deter_utils import pl_replace
 from deter_utils import wireshark_data_row_name_map_pl_type
 from deter_utils import wireshark_data_row_name_map_field_name
-from deter_utils import transformed_field_name_map_pl_type
 from deter_utils import cast_to_pre_final_types
+from deter_utils import lowercase_transformed_data
 from deter_utils import nullify_columns
+from deter_utils import ipv4_regex
 
 import polars as pl
 
@@ -140,11 +140,15 @@ def summarize_protocol_statistics(df):
   with Timer("\tSummarizing and writing out http statistics", log=False):
     _summarize_response_counts(df, "http", "http_response_code", args.httpoutfile)
 
-def validate_final_data(df):
+def validate_final_data(final_df):
   """
   Method that can be used to validate the data that has been processed.
   """
-  pass
+  # Expect the script to have fully replaced IP addresses with host names
+  cols_expecting_no_ip = ["node_type", "message_source", "message_destination"]
+  for col in cols_expecting_no_ip:
+    col_has_ip = final_df.get_column(col).str.contains(ipv4_regex).any().to_list()[0]
+    assert not col_has_ip
 
 def transform_http_data(df, coap_columns):
   """
@@ -242,9 +246,6 @@ def transform_data(df):
   with Timer("\tJoining final dataframe"):
     final_df = joined_df.join(message_marker_df, on="uid")
 
-  with Timer("\tValidating final data"):
-    validate_final_data(final_df)
-
   return final_df
 
 def read_data_lazily(device_name, infile, ip_addr_map_host_name):
@@ -321,17 +322,20 @@ def transform_and_write_data(infile_list, ip_addr_map_host_name):
     df = transform_data(df)
 
   with Timer("Materializing data for writing"):
-    real_df = df.collect()
+    final_df = (
+      df
+      .collect()
+      .with_columns(lowercase_transformed_data)
+    )
+
+  with Timer("Validating data before writing out"):
+    validate_final_data(final_df)
 
   with Timer("Summarizing protocol statistics"):
-    summarize_protocol_statistics(real_df)
+    summarize_protocol_statistics(final_df)
 
-  with Timer("Lowercasing text and writing data out"):
-    lowercase_string_columns = [pl.col(col).str.to_lowercase().alias(col) \
-                                  for col, col_t in transformed_field_name_map_pl_type.items() \
-                                    if col_t == pl.datatypes.Utf8]
-    real_df = real_df.with_columns(lowercase_string_columns)
-    real_df.write_parquet(args.outfile)
+  with Timer("Writing data out"):
+    final_df.write_parquet(args.outfile)
 
 def main():
   # Read config into dict

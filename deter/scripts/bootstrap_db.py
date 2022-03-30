@@ -38,7 +38,8 @@ def sql_create_tables():
       "request_retry_interval" text NOT NULL,
       "reuse_connections" boolean NOT NULL,
       "run_proxy_with_dtls" boolean NOT NULL,
-      "run_proxy_with_https" boolean NOT NULL
+      "run_proxy_with_https" boolean NOT NULL,
+      "run_attacker" boolean NOT NULL
     );
 
     CREATE TABLE IF NOT EXISTS "node" (
