@@ -11,6 +11,9 @@ else
   CF_HOME="/home/ubuntu/dos-californium"
 fi
 
+# Deter configuration files
+EXP_TOPOLOGY_FILE="/proj/MIT-DoS/exp/coap-setup/tbdata/coap-setup.ns"
+
 # Home directories
 DETER_HOME="$CF_HOME/deter"
 IPS_HOME="$DETER_HOME/ips"

@@ -33,7 +33,6 @@ check_directory_exists() {
 
 DATA_DIR=$CF_HOME/deter/expdata/real/final
 SCRIPTS_DIR=$CF_HOME/deter/scripts
-TOPOS_DIR=$CF_HOME/deter/topologies
 REMOTE_EXP_DIR="/proj/MIT-DoS/exp/coap-setup/deps/dos-californium/deter/expdata"
 
 functions_and_procedures_path="$SCRIPTS_DIR/sql/functions_and_procedures.sql"

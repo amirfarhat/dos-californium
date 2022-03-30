@@ -27,7 +27,13 @@ check_directory_exists $exp_dir usage
 
 for D in $exp_dir/*; do
   if [[ -d $D ]]; then
+    # Main processed data file
     for main_data_file in $D/$expname.*; do
+      log_remove_file $main_data_file
+    done
+
+    # Aggregated metrics file
+    for main_data_file in $exp_dir/*.metrics.*; do
       log_remove_file $main_data_file
     done
 
@@ -56,7 +62,7 @@ for D in $exp_dir/*; do
       log_remove_file $text_file
     done
 
-    # Network Simulator
+    # Network Simulator Topology
     for ns_file in $D/*.ns; do
       log_remove_file $ns_file
     done

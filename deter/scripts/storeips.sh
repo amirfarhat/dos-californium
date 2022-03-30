@@ -7,7 +7,7 @@ mkdir -p $IPS_HOME
 rm $IPS_HOME/*
 
 # Copy current experiment's topology file
-(cat $DETER_HOME/topologies/coap_topology.ns) > $IPS_TOPO
+(cat $EXP_TOPOLOGY_FILE) > $IPS_TOPO
 
 # Prepare output file of ips
 touch $IPS_FILE
