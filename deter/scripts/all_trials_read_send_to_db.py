@@ -521,10 +521,10 @@ def main():
     cfg = json.load(f)
 
   # Check that the experiment is not already in the database
-  # if experiment_is_already_inserted(cfg):
-  #   print(f"Experiment {cfg['expname']} is already in database {args.dbname}")
-  #   con.close()
-  #   sys.exit(0)
+  if experiment_is_already_inserted(cfg):
+    print(f"Experiment {cfg['expname']} is already in database {args.dbname}")
+    con.close()
+    sys.exit(0)
 
   # Insert metadata & populate information about 
   # each node's IDs in tables

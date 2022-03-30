@@ -3,12 +3,21 @@ import argparse
 
 from deter_utils import Timer
 from deter_utils import pl_replace
+from deter_utils import nullify_columns
+from deter_utils import normalize_using_minimum
 from deter_utils import wireshark_data_row_name_map_pl_type
 from deter_utils import wireshark_data_row_name_map_field_name
+from deter_utils import cast_to_final_types
 from deter_utils import cast_to_pre_final_types
 from deter_utils import lowercase_transformed_data
-from deter_utils import nullify_columns
+from deter_utils import lowercase_wireshark_data
 from deter_utils import ipv4_regex
+from deter_utils import max_allowed_message_timestamp
+from deter_utils import min_allowed_message_timestamp
+from deter_utils import max_allowed_message_size
+from deter_utils import min_allowed_message_size
+from deter_utils import allowed_protocols
+from deter_utils import transformed_field_name_map_pl_type
 
 import polars as pl
 
@@ -80,11 +89,11 @@ args = parse_args()
 
 # ----------------------------------------
 
-def get_device_name_map_file(infile_list):
+def _get_device_name_map_file(infile_list):
   """
   Return a mapping from device name to corresponding file.
 
-  >>> out = get_device_name_map_file(["/home/ubuntu/dos-californium/deter/expdata/real/final/client_and_attacker_httpson/1/attacker_dump.pcap.out",\
+  >>> out = _get_device_name_map_file(["/home/ubuntu/dos-californium/deter/expdata/real/final/client_and_attacker_httpson/1/attacker_dump.pcap.out",\
                                       "/home/ubuntu/dos-californium/deter/expdata/real/final/client_and_attacker_httpson/1/client1_dump.pcap.out",\
                                       "/home/ubuntu/dos-californium/deter/expdata/real/final/client_and_attacker_httpson/1/proxy_dump.pcap.out",\
                                       "/home/ubuntu/dos-californium/deter/expdata/real/final/client_and_attacker_httpson/1/receiver_dump.pcap.out",\
@@ -99,6 +108,29 @@ def get_device_name_map_file(infile_list):
     name = parts[-1][:end]
     device_name_map_file[name] = infile
   return device_name_map_file
+
+def get_non_empty_device_name_map_file(infile_list):
+  """
+  Return the subset of the mappings in `_get_device_name_map_file`
+  which map to non-empty files.
+  """
+  device_name_map_file = _get_device_name_map_file(infile_list)
+  non_empty_device_name_map_file = dict()
+  for device_name, infile in device_name_map_file.items():
+    with open(infile, "r") as f:
+      line_count = 0
+      for line in f:
+        line_count += 1
+        if line_count > 1:
+          # Case  : File has data other than header
+          # Action: Retain the device-to-input-file mapping
+          non_empty_device_name_map_file[device_name] = infile
+          break
+      else:
+        # Case  : If the break never executes, this file is empty
+        # Action: Drop the mapping, since read the file will lead to crash
+        pass
+  return non_empty_device_name_map_file
 
 def get_ip_addr_map_host_name(hosts_config_dict):
   """
@@ -142,13 +174,33 @@ def summarize_protocol_statistics(df):
 
 def validate_final_data(final_df):
   """
-  Method that can be used to validate the data that has been processed.
+  Validates invariants about the data after it has been processed.
   """
   # Expect the script to have fully replaced IP addresses with host names
   cols_expecting_no_ip = ["node_type", "message_source", "message_destination"]
   for col in cols_expecting_no_ip:
     col_has_ip = final_df.get_column(col).str.contains(ipv4_regex).any().to_list()[0]
     assert not col_has_ip
+
+  # Enforce upper and lower bound on message timestamps
+  min_found_timestamp = final_df.get_column("message_timestamp").min()
+  max_found_timestamp = final_df.get_column("message_timestamp").max()
+  assert min_found_timestamp >= min_allowed_message_timestamp
+  assert max_found_timestamp <= max_allowed_message_timestamp
+
+  # Enforce only allowed protocols, and always some protocol
+  found_protocol_set = set(final_df.get_column("message_protocol").unique().to_list())
+  assert len(found_protocol_set - allowed_protocols) == 0
+  assert 0 < len(found_protocol_set) <= len(allowed_protocols)
+
+  # Enforce upper and lower bound on message sizes
+  min_found_size = final_df.get_column("message_size").min()
+  max_found_size = final_df.get_column("message_size").max()
+  assert min_found_size >= min_allowed_message_size
+  assert max_found_size <= max_allowed_message_size
+
+  # Enforce that the final schema matches post-transformation expecation
+  assert final_df.schema == transformed_field_name_map_pl_type, final_df.schema
 
 def transform_http_data(df, coap_columns):
   """
@@ -244,7 +296,12 @@ def transform_data(df):
     )
 
   with Timer("\tJoining final dataframe"):
-    final_df = joined_df.join(message_marker_df, on="uid")
+    final_df = (
+      joined_df
+      .join(message_marker_df, on="uid")
+      .drop("uid")
+      .with_columns(cast_to_final_types)
+    )
 
   return final_df
 
@@ -255,9 +312,6 @@ def read_data_lazily(device_name, infile, ip_addr_map_host_name):
 
   Source: https://pola-rs.github.io/polars/py-polars/html/reference/lazyframe.html
   """
-  lowercase_string_columns = [pl.col(col).str.to_lowercase().alias(col) \
-                                  for col, col_t in wireshark_data_row_name_map_pl_type.items() \
-                                    if col_t == pl.datatypes.Utf8]
   df = (
     pl
     # Read intermediate Wireshark data in as csv
@@ -267,7 +321,7 @@ def read_data_lazily(device_name, infile, ip_addr_map_host_name):
               quote_char='"')
 
     # Lowercase all the string column values
-    .with_columns(lowercase_string_columns)
+    .with_columns(lowercase_wireshark_data)
       
     # Rename column names from Wireshark format to database format
     .rename(wireshark_data_row_name_map_field_name)
@@ -293,25 +347,10 @@ def transform_and_write_data(infile_list, ip_addr_map_host_name):
   Transforms the data from files in `infile_list` to a format
   that is expected for possible later DB insertion.
   """
-  device_name_map_file = get_device_name_map_file(infile_list)
-
   with Timer("Lazily reading device data"):
-    # We need to filter out empty input files so the dataframe
-    # does not crash when reading data lazily or eagerly
-    non_empty_device_name_map_file = dict()
-    for device_name, infile in device_name_map_file.items():
-      with open(infile, "r") as f:
-        line_count = 0
-        for line in f:
-          line_count += 1
-          if line_count > 1:
-            # File has data other than header
-            non_empty_device_name_map_file[device_name] = infile
-            break
-        else:
-          # If the break never executes, this file is empty
-          pass
-    
+    # Reading empty input files causes the dataframe to crash.
+    # Therefore, we filter to only read non-empty files.
+    non_empty_device_name_map_file = get_non_empty_device_name_map_file(infile_list)
     lazy_dfs = [read_data_lazily(device_name, infile, ip_addr_map_host_name) \
                   for device_name, infile in non_empty_device_name_map_file.items()]
 
@@ -325,7 +364,10 @@ def transform_and_write_data(infile_list, ip_addr_map_host_name):
     final_df = (
       df
       .collect()
-      .with_columns(lowercase_transformed_data)
+      .with_columns(
+        normalize_using_minimum("message_timestamp")
+        + lowercase_transformed_data
+      )
     )
 
   with Timer("Validating data before writing out"):

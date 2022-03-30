@@ -3,11 +3,6 @@ import time
 import polars as pl
 
 ### 
-### Constants and Regexs
-### 
-ipv4_regex = r"^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$"
-
-### 
 ### Timer
 ### 
 
@@ -213,15 +208,38 @@ def _cast_cols_from_type_map(type_map):
 
 def _lowercase_string_columns(type_map):
   """
-  Query to lowercase all the values in string columns
+  Query to lowercase all the values in string columns.
   """
   return [pl.col(col).str.to_lowercase().alias(col) \
             for col, col_t in type_map.items() \
               if col_t == pl.datatypes.Utf8]
 
-cast_to_database_types = _cast_cols_from_type_map(database_transformed_field_name_map_pl_type)
-cast_to_pre_final_types = _cast_cols_from_type_map(pre_final_transformed_field_name_map_pl_type)
-lowercase_transformed_data = _lowercase_string_columns(transformed_field_name_map_pl_type)
+def normalize_using_minimum(col):
+  """
+  Expression which subtracts the minimum column value from every
+  value in the input column `col`. Overrwites the "unnormalized"
+  column with the normalized column.
+  """
+  return [(pl.col(col) - pl.col(col).min()).alias(col)]
 
 def nullify_columns(columns):
+  """
+  Query to nullify all values in the input `columns`.
+  """
   return [pl.lit(None).alias(col) for col in columns]
+
+cast_to_database_types     = _cast_cols_from_type_map(database_transformed_field_name_map_pl_type)
+cast_to_pre_final_types    = _cast_cols_from_type_map(pre_final_transformed_field_name_map_pl_type)
+cast_to_final_types        = _cast_cols_from_type_map(transformed_field_name_map_pl_type)
+lowercase_wireshark_data   = _lowercase_string_columns(wireshark_data_row_name_map_pl_type)
+lowercase_transformed_data = _lowercase_string_columns(transformed_field_name_map_pl_type)
+
+### 
+### Constants and Regexes
+###
+allowed_protocols             = {"http", "coap"}
+min_allowed_message_size      = 0 # bytes
+max_allowed_message_size      = 2000 # bytes
+min_allowed_message_timestamp = 0 # 0 seconds
+max_allowed_message_timestamp = 10 * 60 # 10 minutes to seconds
+ipv4_regex                    = r"^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$"
