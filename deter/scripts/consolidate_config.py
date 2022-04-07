@@ -111,6 +111,10 @@ def main():
   parse_topo(config_dict)
   parse_expinfo(config_dict)
 
+  # Zero out the attack rate if there is no attacker running
+  if config_dict["run_attacker"] == "0":
+    config_dict["attack_rate"] = "0mbps"
+
   # Write config to out config file
   with open(args.outconfig, 'w') as f:
     json.dump(config_dict, f)
