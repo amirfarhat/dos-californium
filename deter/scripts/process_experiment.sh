@@ -124,7 +124,22 @@ for pid in "${pids[@]}"; do
   wait $pid
 done
 
-# | Step 3 | Write tcpdumps as csv
+# | Step 3 | Collect CPU and Memory usage from devices
+metric_infiles=""
+metric_outfile="$exp_dir/$unzipped_expname.metrics.csv"
+for D in $exp_dir/*; do
+  bd="$(basename $D)"
+  if [[ -d $D && $bd != "metadata" ]]; then
+    for metric_file in $D/*.metric.out; do
+      if [[ -f $metric_file ]]; then
+        metric_infiles+="$metric_file;"
+      fi
+    done
+  fi
+done
+python3 $SCRIPTS_DIR/metric_processor.py -i $metric_infiles -o $metric_outfile
+
+# | Step 4 | Transform experiment data to be DB-ready
 pids=()
 for D in $exp_dir/*; do
   bd="$(basename $D)"
@@ -143,7 +158,7 @@ for D in $exp_dir/*; do
     coapoutfile="$D/coap_response_codes.json"
     if [[ ! -f $outfile ]]; then
       echo "Processing tcpdumps in $bd..."
-      (python3 $SCRIPTS_DIR/transform_experiment_data.py -i $infiles -o $outfile -c $joined_config -r $httpoutfile -a $coapoutfile) &
+      (python3 $SCRIPTS_DIR/transform_experiment_data.py -i $infiles -o $outfile -c $joined_config -m $metric_outfile -r $httpoutfile -a $coapoutfile) &
       pids+=($!)
     fi
   fi
@@ -152,21 +167,6 @@ done
 for pid in "${pids[@]}"; do
   wait $pid
 done
-
-# | Step 4 | Collect CPU and Memory usage from devices
-metric_infiles=""
-metric_outfile="$exp_dir/$unzipped_expname.metrics.csv"
-for D in $exp_dir/*; do
-  bd="$(basename $D)"
-  if [[ -d $D && $bd != "metadata" ]]; then
-    for metric_file in $D/*.metric.out; do
-      if [[ -f $metric_file ]]; then
-        metric_infiles+="$metric_file;"
-      fi
-    done
-  fi
-done
-python3 $SCRIPTS_DIR/metric_processor.py -i $metric_infiles -o $metric_outfile
 
 # Finally, log some statistics
 function log_tcpdump_stats() {

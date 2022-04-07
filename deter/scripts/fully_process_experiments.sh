@@ -49,7 +49,6 @@ done
 # Fetch all experiments from deter
 if [[ $no_fetch_experiments == 0 ]]; then
   printf -v scp_target "$REMOTE_EXP_DIR/%s.zip " "${exp_name_inputs_array[@]}"
-  echo "$scp_target"
   scp -r amirf@users.deterlab.net:"$scp_target" $DATA_DIR
 fi
 

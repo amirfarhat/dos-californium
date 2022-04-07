@@ -49,8 +49,11 @@ pip3 install psycopg2-binary
 # Install pandas
 pip3 install pandas
 
-# Install pandera
-pip3 install pandera
+# Install plotly
+pip3 install plotly
+
+# Install seaborn
+pip3 install seaborn
 
 # Install polars
 pip3 install polars

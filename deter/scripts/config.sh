@@ -85,12 +85,12 @@ PROFILE_BINARY_URL="https://github.com/jvm-profiling-tools/async-profiler/releas
 
 # Origin server
 ORIGIN_SERVER_NAME="originserver.coap-setup.MIT-DoS.isi.deterlab.net"
-ORIGIN_SERVER_TCPDUMP="server_dump.pcap"
-ORIGIN_SERVER_PERF="server_perf.data"
-ORIGIN_SERVER_ACCESS_LOGNAME="server_access.log"
-ORIGIN_SERVER_ERROR_LOGNAME="server_error.log"
-ORIGIN_SERVER_CPU_FILENAME="server.cpu.metric.out"
-ORIGIN_SERVER_MEMORY_FILENAME="server.memory.metric.out"
+ORIGIN_SERVER_TCPDUMP="originserver_dump.pcap"
+ORIGIN_SERVER_PERF="originserver_perf.data"
+ORIGIN_SERVER_ACCESS_LOGNAME="originserver_access.log"
+ORIGIN_SERVER_ERROR_LOGNAME="originserver_error.log"
+ORIGIN_SERVER_CPU_FILENAME="originserver.cpu.metric.out"
+ORIGIN_SERVER_MEMORY_FILENAME="originserver.memory.metric.out"
 ORIGIN_SERVER_PORT=80
 ORIGIN_SERVER_HTTPS_PORT=443
 ORIGIN_SERVER_KEYLOGFILE_NAME="originserver.keylogfile.txt"
