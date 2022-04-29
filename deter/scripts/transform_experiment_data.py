@@ -24,10 +24,10 @@ import polars as pl
 # Mapping from all possible coap type values to human readable ones.
 # Source: https://datatracker.ietf.org/doc/html/rfc7252#section-12.1.1
 coap_type_map_human_readable = {
-  "0": "con",
-  "1": "non",
-  "2": "ack",
-  "3": "rst",
+  0: "con",
+  1: "non",
+  2: "ack",
+  3: "rst",
 }
 
 # Mapping from all possible coap code values to human readable ones.
@@ -181,7 +181,7 @@ def validate_final_data(final_df):
   # Expect the script to have fully replaced IP addresses with host names
   cols_expecting_no_ip = ["node_type", "message_source", "message_destination"]
   for col in cols_expecting_no_ip:
-    col_has_ip = final_df.get_column(col).str.contains(ipv4_regex).any().to_list()[0]
+    col_has_ip = final_df.get_column(col).str.contains(ipv4_regex).any()
     assert not col_has_ip
 
   # Enforce upper and lower bound on message timestamps
@@ -365,12 +365,14 @@ def transform_and_write_data(infile_list, ip_addr_map_host_name):
   with Timer("Materializing data for writing"):
     final_df = (
       df
-      .collect()
       .with_columns(
         normalize_using_minimum("message_timestamp")
         + lowercase_transformed_data
       )
+      .collect()
     )
+
+  final_df.write_parquet("/home/ubuntu/dbg_transform.parquet")
 
   with Timer("Validating data before writing out"):
     validate_final_data(final_df)
