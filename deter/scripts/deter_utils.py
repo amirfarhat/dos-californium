@@ -170,7 +170,12 @@ assert database_transformed_field_name_map_pl_type.keys() == transformed_field_n
 database_coap_fields            = ["coap_type", "coap_code", "coap_retransmitted"]
 database_http_fields            = ["http_request", "http_request_method", "http_response_code"]
 database_message_pattern_fields = ["message_size", "message_source", "message_destination"]
-
+database_experiment_fields      = ["exp_id", "attacker_rate", "server_connections", "max_keep_alive_requests", 
+                                   "num_clients", "num_trials", "origin_server_duration", "attacker_duration", 
+                                   "receiver_duration", "proxy_duration", "client_duration", "attacker_start_lag_duration", 
+                                   "topology_name", "num_proxy_connections", "request_timeout", "max_retries", 
+                                   "keep_alive_duration", "request_retry_interval", "reuse_connections", 
+                                   "run_proxy_with_dtls", "run_proxy_with_https", "run_attacker"]
 ### 
 ### Polars condition value replacement
 ### 

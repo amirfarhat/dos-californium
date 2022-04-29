@@ -72,6 +72,4 @@ if [[ $no_bootstrap == 0 ]]; then
   bootstrap_db $db_name
 fi
 
-python3 $SCRIPTS_DIR/multi_exp_send_to_db.py -i $exp_dirs \
-                                             -d $db_name \
-                                             -a $analyze
+python3 $SCRIPTS_DIR/send_experiment_group_to_db.py -i $exp_dirs -d $db_name -a $analyze

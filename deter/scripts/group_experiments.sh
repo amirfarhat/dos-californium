@@ -125,16 +125,9 @@ process_exp() {
   bash $SCRIPTS_DIR/process_experiment.sh $exp_name 1> /dev/null
 }
 
-insert_exp_to_db() {
-  exp_dir=$1
-  exp_name=$(basename $exp_dir)
-  echo "    Adding $exp_name to DB..."
-  bash $SCRIPTS_DIR/add_exp_to_db.sh -n -e $exp_name -d $db_name 1> /dev/null
-}
-
-multi_insert_exp_to_db() {
+group_experiments_to_db() {
   exp_name_inputs=$1
-  bash $SCRIPTS_DIR/multi_add_exp_to_db.sh -n -e $exp_name_inputs -d $db_name 1> /dev/null
+  bash $SCRIPTS_DIR/group_experiments_to_db.sh -n -e $exp_name_inputs -d $db_name
 }
 
 time (
@@ -159,6 +152,6 @@ time (
   echo "Adding to DB:"
 
   quietly_bootstrap_db $db_name
-  multi_insert_exp_to_db $exp_name_inputs
+  group_experiments_to_db $exp_name_inputs
   run_analyze_on_db $db_name
 )

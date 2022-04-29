@@ -35,7 +35,7 @@ def parse_args():
 
 args = parse_args()
 
-con = psycopg2.connect(user="postgres", password="coap", dbname=args.dbname, application_name="multi_exp_send_to_db")
+con = psycopg2.connect(user="postgres", password="coap", dbname=args.dbname, application_name="send_experiment_group_to_db")
 cur = con.cursor()
 
 # ----------------------------------------
@@ -586,6 +586,9 @@ def main():
   # Read the actual experiment data into dataframe
   with Timer("Reading data lazily"):
     lazy_df = read_data(expname_map_config)
+
+  with open("/home/ubuntu/expname_map_config.json", "w") as f:
+    json.dump(expname_map_config, f)
 
   # Insert all the packets captured in the experiments
   insert_packets(lazy_df)
