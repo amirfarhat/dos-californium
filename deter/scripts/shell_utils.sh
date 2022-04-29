@@ -65,3 +65,18 @@ quietly_bootstrap_db() {
   db_name=$1
   bootstrap_db $db_name 1> /dev/null
 }
+
+run_analyze_on_db() {
+  db_name=$1
+  (sudo su postgres -c "psql ${db_name} -c 'ANALYZE'" || true) > /dev/null 2>&1
+}
+
+# ----------------
+# ----------------
+# ----------------
+# ----------------
+# ----------------
+
+# `   du -ch * | grep -B 1 "\.zip"   `
+# Run on deter experiment directory to check for the size of each experiment
+# in decromessed form compared its compressed form

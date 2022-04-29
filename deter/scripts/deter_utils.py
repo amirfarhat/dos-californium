@@ -1,4 +1,3 @@
-
 import time
 import polars as pl
 
@@ -165,6 +164,13 @@ database_transformed_field_name_map_pl_type = {
 
 assert database_transformed_field_name_map_pl_type.keys() == transformed_field_name_map_pl_type.keys()
 
+# These are enumerations of the fields in protocols
+# that the database is meant to store. Note that these
+# do not contain the database IDs by design.
+database_coap_fields            = ["coap_type", "coap_code", "coap_retransmitted"]
+database_http_fields            = ["http_request", "http_request_method", "http_response_code"]
+database_message_pattern_fields = ["message_size", "message_source", "message_destination"]
+
 ### 
 ### Polars condition value replacement
 ### 
@@ -194,6 +200,37 @@ def pl_replace(column, mapping):
   from_ = [k for k, _ in sorted(mapping.items())]
   to_   = [v for _, v in sorted(mapping.items())]
   return pl_replace_from_to(column, from_, to_)
+
+### 
+### Database helpers
+### 
+
+def batch_sql_function_calls(select_sql, num_calls):
+  """
+  Combine multiple SQL function calls into the same
+  command sent to the DB.
+
+  >>> batch_sql_function_calls("SELECT * FROM insert_into_coap(%s, %s, %s)", 1)
+  'SELECT * FROM insert_into_coap(%s, %s, %s)'
+
+  >>> batch_sql_function_calls("SELECT * FROM insert_into_node(%s, %s, %s)", 2)
+  'SELECT * FROM insert_into_node(%s, %s, %s) UNION ALL SELECT * FROM insert_into_node(%s, %s, %s)'
+
+  >>> batch_sql_function_calls("SELECT * FROM insert_into_deployed_node(%s, %s)", 4)
+  'SELECT * FROM insert_into_deployed_node(%s, %s) UNION ALL SELECT * FROM insert_into_deployed_node(%s, %s) UNION ALL SELECT * FROM insert_into_deployed_node(%s, %s) UNION ALL SELECT * FROM insert_into_deployed_node(%s, %s)'
+  """
+  # Here, we need to use ALL after the UNION so that postgres
+  # will not reorder the outputs of the batch query. "The 
+  # Postgres implementation for UNION ALL returns  values 
+  # in the sequence as appended".
+  # Source: https://stackoverflow.com/questions/31975969/is-order-preserved-after-union-in-postgresql
+  unioned_select_sql = """UNION ALL """ + select_sql
+
+  sql_parts = [None for _ in range(num_calls)]
+  sql_parts[0] = select_sql
+  for i in range(1, num_calls):
+    sql_parts[i] = unioned_select_sql
+  return " ".join(sql_parts)
 
 ### 
 ### Polars column manipulation
@@ -228,11 +265,35 @@ def nullify_columns(columns):
   """
   return [pl.lit(None).alias(col) for col in columns]
 
+def _zero_out_response_code_for_http_request():
+  """
+  Return a query which will set the http response code
+  column value to -1 for http requests.
+  """
+  return (
+    pl.when(pl.col("http_request") == True)
+      .then(pl.lit(-1).alias("http_response_code"))
+      .otherwise(pl.col("http_response_code").alias("http_response_code"))
+  )
+
+def _zero_out_request_method_for_http_response():
+  """
+  Return a query which will set the http request method
+  column value to "" for http responses.
+  """
+  return (
+    pl.when(pl.col("http_request") == False)
+      .then(pl.lit("").alias("http_request_method"))
+      .otherwise(pl.col("http_request_method").alias("http_request_method"))
+  )
+
 cast_to_database_types     = _cast_cols_from_type_map(database_transformed_field_name_map_pl_type)
 cast_to_pre_final_types    = _cast_cols_from_type_map(pre_final_transformed_field_name_map_pl_type)
 cast_to_final_types        = _cast_cols_from_type_map(transformed_field_name_map_pl_type)
 lowercase_wireshark_data   = _lowercase_string_columns(wireshark_data_row_name_map_pl_type)
 lowercase_transformed_data = _lowercase_string_columns(transformed_field_name_map_pl_type)
+zero_out_response_code_for_http_request   = _zero_out_response_code_for_http_request()
+zero_out_request_method_for_http_response = _zero_out_request_method_for_http_response()
 
 ### 
 ### Constants and Regexes
@@ -243,3 +304,6 @@ max_allowed_message_size      = 2000 # bytes
 min_allowed_message_timestamp = 0 # 0 seconds
 max_allowed_message_timestamp = 10 * 60 # 10 minutes to seconds
 ipv4_regex                    = r"^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$"
+
+import doctest
+doctest.testmod()

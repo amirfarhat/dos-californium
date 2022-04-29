@@ -24,12 +24,18 @@ def parse_args():
                       help='', action='store', type=str)
   parser.add_argument('-m', '--metrics-file', dest='metrics_file',
                       help='', action='store', type=str)
+  parser.add_argument('-a', '--analyze', dest='analyze',
+                      help='', action='store', type=int)
+  parser.add_argument('-e', '--expname', dest='expname',
+                      help='', action='store', type=str)
 
-  return parser.parse_args()
+  args = parser.parse_args()
+  args.analyze = bool(args.analyze)
+  return args
 
 args = parse_args()
 
-con = psycopg2.connect(user="postgres", password="coap", dbname=args.dbname)
+con = psycopg2.connect(user="postgres", password="coap", dbname=args.dbname, application_name=args.expname)
 cur = con.cursor()
 
 # ----------------------------------------
@@ -461,7 +467,7 @@ def insert_metrics(node_name_map_dnid):
 
   metrics_df = (
     pl
-    .scan_csv(args.metrics_file)
+    .read_csv(args.metrics_file)
     
     # Rename columns and re-order to match DB schema of the metric table
     .rename({
@@ -473,9 +479,7 @@ def insert_metrics(node_name_map_dnid):
     # Replace observer id with deployed node IDs from the DB
     .with_columns([
       pl_replace("observer_id", node_name_map_dnid)
-    ])
-    
-    .collect()
+    ])    
   )
 
   # Copy metrics to the node metric table
@@ -483,7 +487,10 @@ def insert_metrics(node_name_map_dnid):
     buf = io.BytesIO()
     metrics_df.write_csv(buf, has_header=False)
     buf.seek(0)
-    c.copy_from(buf, "node_metric", columns=metrics_df.columns, sep=",")
+    try:
+      c.copy_from(buf, "node_metric", columns=metrics_df.columns, sep=",")
+    except Exception as e:
+      metrics_df.write_csv(f"/tmp/{args.expname}.csv")
     con.commit()
 
 def insert_packets(df):
@@ -533,10 +540,6 @@ def main():
     node_name_map_node_id = {node_name: node_name_map_ids[node_name]["node_id"] for node_name in node_name_map_ids}
     node_name_map_dnid = {node_name: node_name_map_ids[node_name]["dnid"] for node_name in node_name_map_ids}
 
-  # Insert metrics recorded during the experiment
-  with Timer("Inserting metrics"):
-    insert_metrics(node_name_map_dnid)
-
   # Read the actual experiment data into a typed dataframe
   with Timer("Reading data"):
     df = read_data(node_name_map_node_id, node_name_map_dnid)
@@ -544,9 +547,14 @@ def main():
   # Start with coap messages, split into chunks
   insert_packets(df)
 
+  # Insert metrics recorded during the experiment
+  with Timer("Inserting metrics"):
+    insert_metrics(node_name_map_dnid)
+
   # Run ANALYZE for better read performance later
-  with Timer("Running analyze"):
-    run_analyze()
+  if args.analyze:
+    with Timer("Running analyze"):
+      run_analyze()
 
   con.close()
 

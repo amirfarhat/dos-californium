@@ -5,28 +5,31 @@ source $(find ~/*californium -name shell_utils.sh)
 usage() {
   cat <<EOM
   Usage:
-    $(basename $0) -e exp_name -d db_name -n no_bootstrap
+    $(basename $0) -e exp_name -d db_name -n no_bootstrap -a analyze
     exp_name     - the name of the experiment with processed data to insert into the DB db_name. 
                    May be a directory name or a zipped file name.
     db_name      - the name of the database we should insert exp_name's data into
     no_bootstrap - flag which specifies whether this script should create and bootstrap the DB
+    analyze      - flag which specifies whether this script should run ANALYZE after insertion
 EOM
 } >&2
 
 # Parse command line arguments
 no_bootstrap=0
-while getopts e:d:n opt; do
+analyze=0
+while getopts e:d:na opt; do
   case $opt in
     e) exp_name=$OPTARG;;
     d) db_name=$OPTARG;;
     n) no_bootstrap=1;;
+    a) analyze=1;;
     *) usage
        exit 1;;
   esac
 done
 
 # Check that expected inputs are passed in to script
-if [[ -z "$exp_name" ]] || [[ -z "$db_name" ]] || [[ -z "$no_bootstrap" ]]; then
+if [[ -z "$exp_name" ]] || [[ -z "$db_name" ]] || [[ -z "$no_bootstrap" ]] || [[ -z "$analyze" ]]; then
   usage;
   exit 1
 fi
@@ -67,4 +70,6 @@ done
 python3 $SCRIPTS_DIR/all_trials_read_send_to_db.py -i $infiles \
                                                    -c $joined_config_path \
                                                    -d $db_name \
-                                                   -m $metrics_file_path
+                                                   -m $metrics_file_path \
+                                                   -a $analyze \
+                                                   -e $exp_name

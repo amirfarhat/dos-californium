@@ -1,0 +1,188 @@
+4496	TEST_cloud_client_attacker_fresh
+640	TEST_cloud_client_attacker_fresh.zip
+--
+4984	TEST_cloud_client_no_attacker_1
+3328	TEST_cloud_client_no_attacker_1.zip
+--
+24792	TEST_cloud_client_no_attacker_many_trials
+16480	TEST_cloud_client_no_attacker_many_trials.zip
+--
+203976	client_and_attacker
+34528	client_and_attacker.zip
+--
+78332	client_and_attacker_dtlson
+30784	client_and_attacker_dtlson.zip
+--
+91116	client_and_attacker_dtlson_httpson
+62976	client_and_attacker_dtlson_httpson.zip
+--
+210084	client_and_attacker_httpson
+52896	client_and_attacker_httpson.zip
+--
+23468	client_many_trials
+16192	client_many_trials.zip
+--
+969400	cloud_proxy_and_500mbpsattacker_withattacker
+139840	cloud_proxy_and_500mbpsattacker_withattacker.zip
+--
+459260	cloud_proxy_and_500mbpsattacker_withattacker_dtlson
+146880	cloud_proxy_and_500mbpsattacker_withattacker_dtlson.zip
+--
+445552	cloud_proxy_and_500mbpsattacker_withattacker_dtlson_httpson
+332928	cloud_proxy_and_500mbpsattacker_withattacker_dtlson_httpson.zip
+--
+467428	cloud_proxy_and_500mbpsattacker_withattacker_httpson
+349824	cloud_proxy_and_500mbpsattacker_withattacker_httpson.zip
+--
+13640	cloud_proxy_and_attacker_noattacker
+1856	cloud_proxy_and_attacker_noattacker.zip
+--
+14296	cloud_proxy_and_attacker_noattacker_dtlson
+4032	cloud_proxy_and_attacker_noattacker_dtlson.zip
+--
+14888	cloud_proxy_and_attacker_noattacker_dtlson_httpson
+9888	cloud_proxy_and_attacker_noattacker_dtlson_httpson.zip
+--
+14236	cloud_proxy_and_attacker_noattacker_httpson
+7936	cloud_proxy_and_attacker_noattacker_httpson.zip
+--
+981380	cloud_proxy_and_attacker_withattacker
+142400	cloud_proxy_and_attacker_withattacker.zip
+--
+444136	cloud_proxy_and_attacker_withattacker_dtlson
+144416	cloud_proxy_and_attacker_withattacker_dtlson.zip
+--
+472848	cloud_proxy_and_attacker_withattacker_dtlson_httpson
+352960	cloud_proxy_and_attacker_withattacker_dtlson_httpson.zip
+--
+985540	cloud_proxy_and_attacker_withattacker_httpson
+404576	cloud_proxy_and_attacker_withattacker_httpson.zip
+--
+4508	dtlsattacker1
+1312	dtlsattacker1.zip
+--
+80260	dtlsattacker2
+31456	dtlsattacker2.zip
+--
+4688	fourprotocol1
+3264	fourprotocol1.zip
+--
+4692	fourprotocol2
+3264	fourprotocol2.zip
+--
+4728	fourprotocol3
+3264	fourprotocol3.zip
+--
+4744	fourprotocol4
+3296	fourprotocol4.zip
+--
+4516	fourprotocol5
+2624	fourprotocol5.zip
+--
+4504	fourprotocol6
+1312	fourprotocol6.zip
+--
+38304	multiclient_cloud_500mbps_attack_noattacker
+5152	multiclient_cloud_500mbps_attack_noattacker.zip
+--
+40064	multiclient_cloud_500mbps_attack_noattacker_dtlson
+11648	multiclient_cloud_500mbps_attack_noattacker_dtlson.zip
+--
+42200	multiclient_cloud_500mbps_attack_noattacker_dtlson_httpson
+29408	multiclient_cloud_500mbps_attack_noattacker_dtlson_httpson.zip
+--
+39956	multiclient_cloud_500mbps_attack_noattacker_httpson
+23424	multiclient_cloud_500mbps_attack_noattacker_httpson.zip
+--
+994176	multiclient_cloud_500mbps_attack_withattacker
+143072	multiclient_cloud_500mbps_attack_withattacker.zip
+--
+492656	multiclient_cloud_500mbps_attack_withattacker_dtlson
+157920	multiclient_cloud_500mbps_attack_withattacker_dtlson.zip
+--
+1436504	multiclient_cloud_500mbps_attack_withattacker_dtlson_100conns
+733664	multiclient_cloud_500mbps_attack_withattacker_dtlson_100conns.zip
+--
+515868	multiclient_cloud_500mbps_attack_withattacker_dtlson_httpson
+384800	multiclient_cloud_500mbps_attack_withattacker_dtlson_httpson.zip
+--
+1008040	multiclient_cloud_500mbps_attack_withattacker_httpson
+425664	multiclient_cloud_500mbps_attack_withattacker_httpson.zip
+--
+776	newbranch10
+96	newbranch10.zip
+--
+4304	newbranch11
+576	newbranch11.zip
+--
+4304	newbranch12
+576	newbranch12.zip
+--
+31100	newbranch13
+1824	newbranch13.zip
+--
+1248	newbranch14
+100	newbranch14.zip
+--
+31292	newbranch15
+1824	newbranch15.zip
+--
+18760	newbranch16
+1440	newbranch16.zip
+--
+4304	newbranch17
+576	newbranch17.zip
+--
+3124	newbranch18
+332	newbranch18.zip
+--
+4496	newbranch19
+1312	newbranch19.zip
+--
+4496	newbranch20
+1312	newbranch20.zip
+--
+4496	newbranch21
+1312	newbranch21.zip
+--
+4356	newbranch22
+576	newbranch22.zip
+--
+13316	newbranch23
+1888	newbranch23.zip
+--
+4548	newbranch24
+2624	newbranch24.zip
+--
+3724	newbranch7
+480	newbranch7.zip
+--
+116	newbranch8
+12	newbranch8.zip
+--
+776	newbranch9
+92	newbranch9.zip
+--
+126268	regularattacker
+22528	regularattacker.zip
+--
+252	secureclientmultitrial
+32	secureclientmultitrial.zip
+--
+12572	try_multiclient_cloud_noattacker
+1728	try_multiclient_cloud_noattacker.zip
+--
+240	unsecureclienttest
+24	unsecureclienttest.zip
+--
+4312	unsecureclienttest3
+576	unsecureclienttest3.zip
+--
+4504	unsecureclienttest3_dtlson
+1312	unsecureclienttest3_dtlson.zip
+--
+4736	unsecureclienttest3_dtlson_httpson
+3296	unsecureclienttest3_dtlson_httpson.zip
+--
+4516	unsecureclienttest3_httpson
+2624	unsecureclienttest3_httpson.zip
