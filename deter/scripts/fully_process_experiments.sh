@@ -134,7 +134,6 @@ insert_exp_to_db() {
 
 multi_insert_exp_to_db() {
   exp_name_inputs=$1
-  # echo "    Adding $exp_name to DB..."
   bash $SCRIPTS_DIR/multi_add_exp_to_db.sh -n -e $exp_name_inputs -d $db_name 1> /dev/null
 }
 
@@ -155,34 +154,11 @@ time (
   done
 )
 
-# time (
-#   echo ""
-#   echo "Adding to DB:"
-
-#   quietly_bootstrap_db $db_name
-
-#   pids=()
-#   for exp_dir in ${exp_dirs_to_process[@]}; do
-#     insert_exp_to_db $exp_dir &
-#     pids+=($!)
-#   done
-#   for pid in "${pids[@]}"; do
-#     # Waiting on a specific PID makes the wait command return with the exit
-#     # status of that process. Because of the 'set -e' setting, any exit status
-#     # other than zero causes the current shell to terminate with that exit
-#     # status as well.
-#     wait $pid
-#   done
-
-#   run_analyze_on_db $db_name
-# )
-
 time (
   echo ""
   echo "Adding to DB:"
 
   quietly_bootstrap_db $db_name
   multi_insert_exp_to_db $exp_name_inputs
-
   run_analyze_on_db $db_name
 )
