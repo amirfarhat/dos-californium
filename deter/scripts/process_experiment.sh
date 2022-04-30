@@ -139,7 +139,7 @@ for D in $exp_dir/*; do
 done
 python3 $SCRIPTS_DIR/metric_processor.py -i $metric_infiles -o $metric_outfile
 
-# | Step 4 | Transform experiment data to be DB-ready
+# | Step 4.1 | Transform experiment data to be DB-ready
 pids=()
 for D in $exp_dir/*; do
   bd="$(basename $D)"
@@ -167,6 +167,10 @@ done
 for pid in "${pids[@]}"; do
   wait $pid
 done
+
+# | Step 4.2 | Transform experiment metrics to be DB-ready
+echo "Processing metrics..."
+python3 $SCRIPTS_DIR/transform_experiment_metrics.py -m $metric_outfile
 
 # Finally, log some statistics
 function log_tcpdump_stats() {

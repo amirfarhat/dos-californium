@@ -72,4 +72,7 @@ if [[ $no_bootstrap == 0 ]]; then
   bootstrap_db $db_name
 fi
 
-python3 $SCRIPTS_DIR/send_experiment_group_to_db.py -i $exp_dirs -d $db_name -a $analyze
+group_dir="/home/ubuntu/$db_name"
+mkdir -p $group_dir
+
+python3 $SCRIPTS_DIR/send_experiment_group_to_file.py -i $exp_dirs -d $group_dir

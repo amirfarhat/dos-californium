@@ -170,12 +170,31 @@ assert database_transformed_field_name_map_pl_type.keys() == transformed_field_n
 database_coap_fields            = ["coap_type", "coap_code", "coap_retransmitted"]
 database_http_fields            = ["http_request", "http_request_method", "http_response_code"]
 database_message_pattern_fields = ["message_size", "message_source", "message_destination"]
-database_experiment_fields      = ["exp_id", "attacker_rate", "server_connections", "max_keep_alive_requests", 
-                                   "num_clients", "num_trials", "origin_server_duration", "attacker_duration", 
-                                   "receiver_duration", "proxy_duration", "client_duration", "attacker_start_lag_duration", 
-                                   "topology_name", "num_proxy_connections", "request_timeout", "max_retries", 
-                                   "keep_alive_duration", "request_retry_interval", "reuse_connections", 
-                                   "run_proxy_with_dtls", "run_proxy_with_https", "run_attacker"]
+database_experiment_field_map_pl_type = {
+  "exp_id"                     : pl.datatypes.Utf8,
+  "attacker_rate"              : pl.datatypes.Utf8,
+  "server_connections"         : pl.datatypes.Int64,
+  "max_keep_alive_requests"    : pl.datatypes.Int64,
+  "num_clients"                : pl.datatypes.Int64,
+  "num_trials"                 : pl.datatypes.Int64,
+  "origin_server_duration"     : pl.datatypes.Int64,
+  "attacker_duration"          : pl.datatypes.Int64,
+  "receiver_duration"          : pl.datatypes.Int64,
+  "proxy_duration"             : pl.datatypes.Int64,
+  "client_duration"            : pl.datatypes.Int64,
+  "attacker_start_lag_duration": pl.datatypes.Int64,
+  "topology_name"              : pl.datatypes.Utf8,
+  "num_proxy_connections"      : pl.datatypes.Int64,
+  "request_timeout"            : pl.datatypes.Utf8,
+  "max_retries"                : pl.datatypes.Int64,
+  "keep_alive_duration"        : pl.datatypes.Utf8,
+  "request_retry_interval"     : pl.datatypes.Utf8,
+  "reuse_connections"          : pl.datatypes.Boolean,
+  "run_proxy_with_dtls"        : pl.datatypes.Boolean,
+  "run_proxy_with_https"       : pl.datatypes.Boolean,
+  "run_attacker"               : pl.datatypes.Boolean,
+}
+database_experiment_fields = list(database_experiment_field_map_pl_type.keys())
 ### 
 ### Polars condition value replacement
 ### 
@@ -295,6 +314,7 @@ def _zero_out_request_method_for_http_response():
 cast_to_database_types     = _cast_cols_from_type_map(database_transformed_field_name_map_pl_type)
 cast_to_pre_final_types    = _cast_cols_from_type_map(pre_final_transformed_field_name_map_pl_type)
 cast_to_final_types        = _cast_cols_from_type_map(transformed_field_name_map_pl_type)
+cast_configuration_fields  = _cast_cols_from_type_map(database_experiment_field_map_pl_type)
 lowercase_wireshark_data   = _lowercase_string_columns(wireshark_data_row_name_map_pl_type)
 lowercase_transformed_data = _lowercase_string_columns(transformed_field_name_map_pl_type)
 zero_out_response_code_for_http_request   = _zero_out_response_code_for_http_request()
