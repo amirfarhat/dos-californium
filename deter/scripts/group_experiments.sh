@@ -5,7 +5,7 @@ source $(find ~/*californium -name shell_utils.sh)
 usage() {
   cat <<EOM
   Usage:
-    $(basename $0) -e exp_name_inputs -d db_name -n no_fetch_experiments -c clean_before_processing
+    $(basename $0) -e exp_name_inputs -d db_name -n no_fetch_experiments -c clean_before_processing -f use_file_based_grouping -s skip_grouping
     exp_name_inputs         - the names of the experiment that this script will process. Should
                               be comma-separated. Supports the use of wildcard in names. Experiment
                               names must not be zipped or compressed.
@@ -18,12 +18,16 @@ EOM
 # Parse command line arguments
 no_fetch_experiments=0
 clean_before_processing=0
-while getopts e:d:nc opt; do
+use_file_based_grouping=0
+skip_grouping=0
+while getopts e:d:ncfs opt; do
   case $opt in
     e) exp_name_inputs=$OPTARG;;
     d) db_name=$OPTARG;;
     n) no_fetch_experiments=1;;
     c) clean_before_processing=1;;
+    f) use_file_based_grouping=1;;
+    s) skip_grouping=1;;
     *) usage
        exit 1;;
   esac
@@ -34,6 +38,15 @@ if [[ -z "$exp_name_inputs" ]] || [[ -z "$db_name" ]]; then
   usage;
   exit 1
 fi
+
+# Make directory to store the groupping's logs
+group_logging_dir="/home/ubuntu/group_logging"
+if [[ $use_file_based_grouping == 1 ]]; then
+  log_dir="$group_logging_dir/file_$db_name"
+else
+  log_dir="$group_logging_dir/db_$db_name"
+fi
+mkdir -p $log_dir
 
 # Split input exp_names by comma into bash array exp_name_inputs_array
 readarray -td, exp_name_inputs_array <<<"$exp_name_inputs,"; unset 'exp_name_inputs_array[-1]';
@@ -118,40 +131,56 @@ if [[ $clean_before_processing == 1 ]]; then
   echo "Done"
 fi
 
-process_exp() {
-  exp_dir=$1
-  exp_name=$(basename $exp_dir)
-  echo "    Processing $exp_name..."
-  bash $SCRIPTS_DIR/process_experiment.sh $exp_name 1> /dev/null
+main() {
+  process_exp() {
+    exp_dir=$1
+    exp_name=$(basename $exp_dir)
+    echo "    Processing $exp_name..."
+    (time bash $SCRIPTS_DIR/process_experiment.sh $exp_name) &> "$log_dir/process_$exp_name.log"
+  }
+
+  group_experiments_to_db() {
+    exp_name_inputs=$1
+    bash $SCRIPTS_DIR/group_experiments_to_db.sh -n -e $exp_name_inputs -d $db_name
+  }
+
+  group_experiments_to_file() {
+    exp_name_inputs=$1
+    bash $SCRIPTS_DIR/group_experiments_to_file.sh -n -e $exp_name_inputs -d $db_name
+  }
+
+  time (
+    echo ""
+    echo "Processing experiments:"
+    pids=()
+    for exp_dir in ${exp_dirs_to_process[@]}; do
+      process_exp $exp_dir &
+      pids+=($!)
+    done
+    for pid in "${pids[@]}"; do
+      # Waiting on a specific PID makes the wait command return with the exit
+      # status of that process. Because of the 'set -e' setting, any exit status
+      # other than zero causes the current shell to terminate with that exit
+      # status as well.
+      wait $pid
+    done
+  )
+
+  if [[ $skip_grouping == 0 ]]; then
+    time (
+      echo ""
+      echo "Grouping experiments:"
+
+      quietly_bootstrap_db $db_name
+      if [[ $use_file_based_grouping == 1 ]]; then
+        group_experiments_to_file $exp_name_inputs
+      else
+        group_experiments_to_db $exp_name_inputs
+        echo "Running analyze"
+        time run_analyze_on_db $db_name
+      fi
+    )
+  fi
 }
 
-group_experiments_to_db() {
-  exp_name_inputs=$1
-  bash $SCRIPTS_DIR/group_experiments_to_db.sh -n -e $exp_name_inputs -d $db_name
-}
-
-time (
-  echo ""
-  echo "Processing experiments:"
-  pids=()
-  for exp_dir in ${exp_dirs_to_process[@]}; do
-    process_exp $exp_dir &
-    pids+=($!)
-  done
-  for pid in "${pids[@]}"; do
-    # Waiting on a specific PID makes the wait command return with the exit
-    # status of that process. Because of the 'set -e' setting, any exit status
-    # other than zero causes the current shell to terminate with that exit
-    # status as well.
-    wait $pid
-  done
-)
-
-time (
-  echo ""
-  echo "Adding to DB:"
-
-  quietly_bootstrap_db $db_name
-  group_experiments_to_db $exp_name_inputs
-  run_analyze_on_db $db_name
-)
+( time main ) 2>&1 | tee "$log_dir/main.log"

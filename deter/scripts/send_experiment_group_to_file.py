@@ -46,6 +46,7 @@ def read_experiment_result_data(expname_map_config):
     for t in range(1, num_trials + 1):
       trial_dir_path = f"{base_dir_path}/{t}"
       trial_data_path = f"{trial_dir_path}/{expname}.parquet"
+      print(trial_data_path)
       df = (
         # For each trial, lazily read the trial data into memory.
         pl
@@ -61,12 +62,15 @@ def read_experiment_result_data(expname_map_config):
   # Collect all experiment trial data lazily into memory.
   trial_dfs = list()
   for expname in expname_map_config:
-    read_exp_trial_dfs(expname)
+    try:
+      read_exp_trial_dfs(expname)
+    except OSError:
+      pass
   df = pl.concat(trial_dfs)
 
   # Assert that we read as many trials as we expect to.
   expected_num_trial_dfs = sum(int(cfg["num_trials"]) for _, cfg in expname_map_config.items())
-  assert len(trial_dfs) == expected_num_trial_dfs
+  # assert len(trial_dfs) == expected_num_trial_dfs
 
   return df
 
