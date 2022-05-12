@@ -23,9 +23,8 @@ filter="coap || http"
   -o dtls.psk:"$psk" \
   -o tls.keylog_file:"$keylog_file" \
   -r "$input_file" \
-  -2 \
   -n \
-  -R "$filter" \
+  -Y "$filter" \
   -t e \
   -T fields \
     -e _ws.col.Time \
