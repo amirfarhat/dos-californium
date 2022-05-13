@@ -70,3 +70,8 @@ sudo apt-get install -y jq pypy3
 
 # Install tshark separately because it will prompt for a screen
 sudo apt-get install tshark
+
+# Install clickhouse
+curl https://clickhouse.com/ | sh
+sudo ./clickhouse install
+pip3 install clickhouse-driver[lz4,zstd,numpy]

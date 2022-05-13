@@ -33,6 +33,7 @@ check_directory_exists() {
 
 DATA_DIR=$CF_HOME/deter/expdata/real/final
 SCRIPTS_DIR=$CF_HOME/deter/scripts
+SQL_DIR=$SCRIPTS_DIR/sql
 REMOTE_EXP_DIR="/proj/MIT-DoS/exp/coap-setup/deps/dos-californium/deter/expdata"
 
 functions_and_procedures_path="$SCRIPTS_DIR/sql/functions_and_procedures.sql"
@@ -59,6 +60,12 @@ bootstrap_db() {
   # Bootstrap DB for experiments
   python3 $SCRIPTS_DIR/bootstrap_db.py -d $db_name \
                                        -p $functions_and_procedures_path
+}
+
+bootstrap_clickhouse() {
+  db_name=$1
+  clickhouse_sql="$SQL_DIR/bootstrap_clickhouse.sql"
+  python3 $SCRIPTS_DIR/bootstrap_clickhouse.py -d $db_name -s $clickhouse_sql
 }
 
 quietly_bootstrap_db() {
