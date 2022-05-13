@@ -1,24 +1,19 @@
-import io
 import sys
 import json
 import argparse
 
 from clickhouse_driver import Client
-from clickhouse_driver import connect
 
 import polars as pl
 
 from pprint import pprint
 
-from uuid import uuid4
-
 from deter_utils import Timer
 from deter_utils import pl_replace
 from deter_utils import pl_replace_predicates_to_values
-from deter_utils import batch_sql_function_calls
 from deter_utils import zero_out_response_code_for_http_request
-from deter_utils import zero_out_request_method_for_http_response
 from deter_utils import cast_to_database_types
+from deter_utils import zero_out_request_method_for_http_response
 from deter_utils import database_message_pattern_fields
 from deter_utils import database_coap_fields
 from deter_utils import database_http_fields
@@ -39,6 +34,23 @@ args = parse_args()
 client = Client('localhost', database=args.dbname)
 
 # ----------------------------------------
+
+def generate_next_unique_id(collection):
+  """
+  Generates IDs in autoincrementing fashion based on `collection`.
+
+  >>> generate_next_unique_id(list())
+  1
+  >>> generate_next_unique_id(set())
+  1
+  >>> generate_next_unique_id({1})
+  2
+  >>> generate_next_unique_id({10})
+  11
+  """
+  if len(collection) == 0:
+    return 1
+  return max(collection) + 1
 
 def read_data(expname_map_config):
   """
@@ -63,9 +75,9 @@ def read_data(expname_map_config):
         .scan_parquet(trial_data_path)
         .with_columns([
           # Add columns for database IDs, trial, and experiment.
-          pl.lit("").alias("cmci"),
-          pl.lit("").alias("hmci"),
-          pl.lit("").alias("message_id"),
+          pl.lit(-1).alias("cmci"),
+          pl.lit(-1).alias("hmci"),
+          pl.lit(-1).alias("message_id"),
           pl.lit(t).alias("trial"),
           pl.lit(expname).alias("exp_id"),
           
@@ -80,8 +92,7 @@ def read_data(expname_map_config):
           zero_out_request_method_for_http_response,
         ])
         # Cast column types to expected DB types.
-        # TODO write a version of expected types for clickhouse
-        # .with_columns(cast_to_database_types)
+        .with_columns(cast_to_database_types)
       )
       trial_dfs.append(df)
 
@@ -128,31 +139,8 @@ def insert_experiment_table(expname_map_config):
     INSERT INTO {dbname}.experiment VALUES 
   """.format(dbname=args.dbname)
 
-  """(
-      %(expname)s, 
-      %(attack_rate)s,
-      %(server_connections)s,
-      %(max_keep_alive_requests)s,
-      %(num_clients)s, 
-      %(num_trials)s,
-      %(origin_server_duration)s,
-      %(attacker_duration)s,
-      %(receiver_duration)s,
-      %(proxy_duration)s,
-      %(client_duration)s,
-      %(attacker_start_lag_duration)s,
-      %(topology_name)s,
-      %(num_proxy_connections)s,
-      %(request_timeout)s,
-      %(max_retries)s,
-      %(keep_alive_duration)s,
-      %(request_retry_interval)s,
-      %(reuse_connections)s,
-      %(run_proxy_with_dtls)s,
-      %(run_proxy_with_https)s,
-      %(run_attacker)s
-    );
-  """
+  # TODO dedup
+
   for _, cfg in expname_map_config.items():
     format_cfg(cfg)
     client.execute(sql, [cfg], types_check=True)
@@ -175,7 +163,7 @@ def insert_node_table(expname_map_config):
     for name, details in node_name_and_details:
       row = (name, details["hardware"], details["operating_system"])
       if row not in node_row_map_node_id:
-        node_id = uuid4()
+        node_id = generate_next_unique_id(set(node_row_map_node_id.values()))
         node_row_map_node_id[row] = node_id
         client.execute(
           insert_sql, 
@@ -185,7 +173,7 @@ def insert_node_table(expname_map_config):
             "hardware_type": details["hardware"],
             "operating_system": details["operating_system"],
           }]
-        )
+        , types_check=True)
     
     # Update the temporary expname map with the new node IDs
     node_name_map_ids = { row[0] : {"node_id":node_id} for row, node_id in node_row_map_node_id.items() }
@@ -211,7 +199,7 @@ def insert_deployed_node_table(expname_map_config):
     for node_name, ids in node_name_and_ids:
       row = (expname, ids["node_id"])
       if row not in deployed_node_row_map_deployed_node_id:
-        deployed_node_id = uuid4()
+        deployed_node_id = generate_next_unique_id(set(deployed_node_row_map_deployed_node_id.values()))
         deployed_node_row_map_deployed_node_id[row] = deployed_node_id
         client.execute(
           insert_sql, 
@@ -225,8 +213,8 @@ def insert_deployed_node_table(expname_map_config):
 
     # Add node_id and dnid mappings into the config
     node_name_map_ids["server"] = node_name_map_ids["originserver"]
-    cfg["node_name_map_node_id"] = {node_name: str(node_name_map_ids[node_name]["node_id"]) for node_name in node_name_map_ids}
-    cfg["node_name_map_dnid"] = {node_name: str(node_name_map_ids[node_name]["dnid"]) for node_name in node_name_map_ids}
+    cfg["node_name_map_node_id"] = {node_name: node_name_map_ids[node_name]["node_id"] for node_name in node_name_map_ids}
+    cfg["node_name_map_dnid"] = {node_name: node_name_map_ids[node_name]["dnid"] for node_name in node_name_map_ids}
 
 def insert_metadata(expname_map_config):
   """
@@ -256,20 +244,20 @@ def insert_coap(message_patterns_df, unique_coap_df, log=False):
     for nr in named_rows:
       row = tuple(nr.values())
       if row not in row_map_cmci:
-        cmci = uuid4()
+        cmci = generate_next_unique_id(set(row_map_cmci.values()))
         row_map_cmci[row] = cmci
         client.execute(insert_sql, [{**nr, **{"cmci": cmci}}])
 
   with Timer("\tUpdating coap message IDs", log=log):
     rows = list(row_map_cmci.keys())
-    cmcis = list(map(str, row_map_cmci.values()))
+    cmcis = list(row_map_cmci.values())
 
     # Associate each uniquely valued coap tuple in the dataframe with the coap ID from the DB 
     filter_predicates = [(
-      (pl.col("coap_type") == row[0])
-      & (pl.col("coap_code") == row[1])
-      & (pl.col("coap_retransmitted") == row[2])
-      ) for row in rows
+      (pl.col("coap_type") == r[0])
+      & (pl.col("coap_code") == r[1])
+      & (pl.col("coap_retransmitted") == r[2])
+      ) for r in rows
     ]
     message_patterns_df = message_patterns_df.with_columns([
       pl_replace_predicates_to_values("cmci", filter_predicates, cmcis)
@@ -298,14 +286,14 @@ def insert_http(message_patterns_df, unique_http_df, log=False):
     for nr in named_rows:
       row = tuple(nr.values())
       if row not in row_map_hmci:
-        hmci = uuid4()
+        hmci = generate_next_unique_id(set(row_map_hmci.values()))
         row_map_hmci[row] = hmci
         client.execute(insert_sql, [{**nr, **{"hmci": hmci}}])
 
   # Update the hmcis for columns with matching values
   with Timer(f"\tUpdating http message IDs", log=log):
     rows = list(row_map_hmci.keys())
-    hmcis = list(map(str, row_map_hmci.values()))
+    hmcis = list(row_map_hmci.values())
 
     # Here, we need to update http requests and the responses
     # separately. This is because the fields which requests and
@@ -319,14 +307,14 @@ def insert_http(message_patterns_df, unique_http_df, log=False):
       (pl.col("message_protocol") == "http")
         & (pl.col("http_request") == True)
         & (pl.col("http_request_method") == r[1])
-        & (pl.col("hmci") == "")
+        & (pl.col("hmci") == -1) # Only change unset hmci.
       for r in rows
     ]
     hmci_update_response_predicates = [
       (pl.col("message_protocol") == "http")
         & (pl.col("http_request") == False)
         & (pl.col("http_response_code") == r[2])
-        & (pl.col("hmci") == "")
+        & (pl.col("hmci") == -1) # Only change unset hmci.
       for r in rows
     ]
     # These replacement statements for the hmci need to be 
@@ -387,7 +375,7 @@ def _insert_message_for_protocol(message_patterns_df, protocol, log=False):
       message_patterns_df
       .filter(
         (pl.col("message_protocol") == protocol)
-        & (pl.col(protocol_message_id_name) != "")
+        & (pl.col(protocol_message_id_name) != -1)
       )
       .select(database_message_pattern_fields + [protocol_message_id_name])
       .unique()
@@ -398,7 +386,7 @@ def _insert_message_for_protocol(message_patterns_df, protocol, log=False):
     for nr in named_rows:
       row = tuple(nr.values())
       if row not in row_map_message_id:
-        message_id = uuid4()
+        message_id = generate_next_unique_id(set(row_map_message_id.values()))
         row_map_message_id[row] = message_id
         # Here, we need to add new keys which match the column
         # names expected in the SQL queries. In cases elsewhere,
@@ -412,15 +400,13 @@ def _insert_message_for_protocol(message_patterns_df, protocol, log=False):
 
   with Timer(f"\tUpdating message-{protocol} IDs", log=log):
     rows = list(row_map_message_id.keys())
-    message_ids = list(map(str, row_map_message_id.values()))
-
-    pprint(rows)
+    message_ids = list(row_map_message_id.values())
 
     # Associate each uniquely valued message tuple in the dataframe with the message ID from the DB
     filter_predicates = [(
       (pl.col("message_size") == r[0])
-      & (pl.col("message_source").str == str(r[1]))
-      & (pl.col("message_destination").str == str(r[2]))
+      & (pl.col("message_source") == r[1])
+      & (pl.col("message_destination") == r[2])
       & (pl.col(protocol_message_id_name) == r[3])
       ) for r in rows
     ]
@@ -474,7 +460,7 @@ def insert_event(message_patterns_df, real_df, log=False):
         .to_pandas()
     )
 
-    with Timer("\tCopying to event", log=log, print_header=log):
+    with Timer("\tCopying to event", log=log):
       sql = """INSERT INTO {dbname}.event VALUES""".format(dbname=args.dbname)
       client.insert_dataframe(sql, event_df, settings={ "max_block_size": 100_000, "use_numpy": True, "columnar": True })
 
@@ -544,9 +530,9 @@ def get_unique_protocol_values_df(lazy_df, log=False):
         .with_columns([
           # These are database IDs which we will populate
           # later in the data analysis, but we allocate here.
-          pl.lit("").alias("cmci"),
-          pl.lit("").alias("hmci"),
-          pl.lit("").alias("message_id"),
+          pl.lit(-1).alias("cmci"),
+          pl.lit(-1).alias("hmci"),
+          pl.lit(-1).alias("message_id"),
         ])
     )
 
@@ -574,8 +560,8 @@ def get_unique_protocol_values_df(lazy_df, log=False):
   return real_df, message_patterns_df, unique_coap_df, unique_http_df
 
 def insert_packets(lazy_df, log=False):
-  with Timer("Filtering for unique protocol values", log=True, print_header=True):
-    real_df, message_patterns_df, unique_coap_df, unique_http_df = get_unique_protocol_values_df(lazy_df, log=True)
+  with Timer("Filtering for unique protocol values", log=log, print_header=log):
+    real_df, message_patterns_df, unique_coap_df, unique_http_df = get_unique_protocol_values_df(lazy_df, log=log)
 
   with Timer("Inserting coap"):
     message_patterns_df = insert_coap(message_patterns_df, unique_coap_df, log=log)
@@ -584,16 +570,16 @@ def insert_packets(lazy_df, log=False):
     message_patterns_df = insert_http(message_patterns_df, unique_http_df, log=log)
 
   with Timer("Inserting message-coap"):
-    message_patterns_df = _insert_message_for_protocol(message_patterns_df, "coap", log=True)
+    message_patterns_df = _insert_message_for_protocol(message_patterns_df, "coap", log=log)
 
   with Timer("Inserting message-http"):
-    message_patterns_df = _insert_message_for_protocol(message_patterns_df, "http", log=True)
+    message_patterns_df = _insert_message_for_protocol(message_patterns_df, "http", log=log)
 
   # At this point, all message IDs should be set.
-  assert len(message_patterns_df.filter(pl.col("message_id") == "")) == 0
+  assert len(message_patterns_df.filter(pl.col("message_id") == -1)) == 0
 
-  with Timer("Inserting event", print_header=True):
-    insert_event(message_patterns_df, real_df, log=True)
+  with Timer("Inserting event", log=log, print_header=log):
+    insert_event(message_patterns_df, real_df, log=log)
 
 def main():
   if args.infiles[-1] == ";":
@@ -622,7 +608,8 @@ def main():
     lazy_df = read_data(expname_map_config)
 
   # Insert all the packets captured in the experiments
-  insert_packets(lazy_df)
+  with Timer("Inserting messages", print_header=True):
+    insert_packets(lazy_df)
 
 if __name__ == "__main__":
   import doctest

@@ -27,7 +27,7 @@ CREATE TABLE IF NOT EXISTS {dbname}.experiment (
 ) ENGINE = MergeTree();
 
 CREATE TABLE IF NOT EXISTS {dbname}.node (
-  node_id UUID DEFAULT generateUUIDv4() NOT NULL,
+  node_id Int64 NOT NULL,
   node_name String NOT NULL,
   hardware_type String NOT NULL,
   operating_system String NOT NULL,
@@ -35,25 +35,25 @@ CREATE TABLE IF NOT EXISTS {dbname}.node (
 ) ENGINE = MergeTree();
 
 CREATE TABLE IF NOT EXISTS {dbname}.deployed_node (
-  dnid UUID DEFAULT generateUUIDv4() NOT NULL,
+  dnid Int64 NOT NULL,
   exp_id String NOT NULL,
-  node_id UUID NOT NULL,
+  node_id Int64 NOT NULL,
   PRIMARY KEY(dnid)
 ) ENGINE = MergeTree();
 
 CREATE TABLE IF NOT EXISTS {dbname}.message (
-  message_id UUID DEFAULT generateUUIDv4() NOT NULL,
+  message_id Int64 NOT NULL,
   size_bytes Int64 NOT NULL,
-  src_id UUID NOT NULL,
-  dst_id UUID NOT NULL,
-  http_message Nullable(UUID),
-  coap_message Nullable(UUID),
+  src_id Int64 NOT NULL,
+  dst_id Int64 NOT NULL,
+  http_message Nullable(Int64),
+  coap_message Nullable(Int64),
   PRIMARY KEY(message_id)
 ) ENGINE = MergeTree();
 
 CREATE TABLE IF NOT EXISTS {dbname}.event (
-  observer_id UUID NOT NULL,
-  message_id UUID NOT NULL,
+  observer_id Int64 NOT NULL,
+  message_id Int64 NOT NULL,
   observe_timestamp Float64 NOT NULL,
   trial Int64 NOT NULL,
   message_marker Int64 NOT NULL
@@ -61,7 +61,7 @@ CREATE TABLE IF NOT EXISTS {dbname}.event (
 
 
 CREATE TABLE IF NOT EXISTS {dbname}.coap_message (
-  cmci UUID DEFAULT generateUUIDv4() NOT NULL,
+  cmci Int64 NOT NULL,
   coap_type String NOT NULL,
   coap_code String NOT NULL,
   coap_retransmitted Boolean NOT NULL,
@@ -69,7 +69,7 @@ CREATE TABLE IF NOT EXISTS {dbname}.coap_message (
 ) ENGINE = MergeTree();
 
 CREATE TABLE IF NOT EXISTS {dbname}.http_message (
-  hmci UUID DEFAULT generateUUIDv4() NOT NULL,
+  hmci Int64 NOT NULL,
   http_request Boolean NOT NULL,
   http_request_method String NOT NULL,
   http_response_code Int64 NOT NULL,
@@ -77,7 +77,7 @@ CREATE TABLE IF NOT EXISTS {dbname}.http_message (
 ) ENGINE = MergeTree();
 
 CREATE TABLE IF NOT EXISTS {dbname}.node_metric (
-  observer_id UUID NOT NULL,
+  observer_id Int64 NOT NULL,
   trial Int64 NOT NULL,
   observation_timestamp Float64 NOT NULL,
   metric_type String NOT NULL,
