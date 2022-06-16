@@ -6,8 +6,13 @@ rm -f $TMP_DATA/$ATTACKER_LOGNAME
 touch $TMP_DATA/$ATTACKER_LOGNAME
 
 PROXY_IP=`bash $SCRIPTS_HOME/fetchips.sh proxy`
-ATTACKER_SPOOFED_IP=`bash $SCRIPTS_HOME/fetchips.sh proxy receiver`
 ORIGIN_SERVER_IP=`bash $SCRIPTS_HOME/fetchips.sh proxy originserver`
+
+if [[ $SPOOF_ATTACKER_SOURCE == 1 ]]; then
+  ATTACKER_SOURCE_IP=`bash $SCRIPTS_HOME/fetchips.sh proxy receiver`
+else
+  ATTACKER_SOURCE_IP=`bash $SCRIPTS_HOME/fetchips.sh proxy attacker`
+fi
 
 # Vary parameters based on whether the proxy uses DTLS or not
 dst_port=""
@@ -41,7 +46,7 @@ if [[ $RUN_PROXY_WITH_DTLS -eq 1 ]]; then
 else
   (python3 $SCRIPTS_HOME/coapspoofer.py \
     --debug \
-    --source $ATTACKER_SPOOFED_IP \
+    --source $ATTACKER_SOURCE_IP \
     --src-port $ATTACKER_SPOOFED_PORT \
     --destination $PROXY_IP \
     --dst-port $dst_port \
