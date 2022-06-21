@@ -5,7 +5,7 @@ source $(find ~/*californium -name shell_utils.sh)
 usage() {
   cat <<EOM
   Usage:
-    $(basename $0) -e exp_name_inputs -d db_name -n no_fetch_experiments -c clean_before_processing -f use_file_based_grouping -s skip_grouping
+    $(basename $0) -e exp_name_inputs -d db_name -n no_fetch_experiments -c clean_before_processing -f use_file_based_grouping -s skip_grouping -h clickhouse
     exp_name_inputs         - the names of the experiment that this script will process. Should
                               be comma-separated. Supports the use of wildcard in names. Experiment
                               names must not be zipped or compressed.
@@ -20,7 +20,8 @@ no_fetch_experiments=0
 clean_before_processing=0
 use_file_based_grouping=0
 skip_grouping=0
-while getopts e:d:ncfs opt; do
+clickhouse=0
+while getopts e:d:ncfsh opt; do
   case $opt in
     e) exp_name_inputs=$OPTARG;;
     d) db_name=$OPTARG;;
@@ -28,6 +29,7 @@ while getopts e:d:ncfs opt; do
     c) clean_before_processing=1;;
     f) use_file_based_grouping=1;;
     s) skip_grouping=1;;
+    h) clickhouse=1;;
     *) usage
        exit 1;;
   esac
@@ -141,7 +143,14 @@ main() {
 
   group_experiments_to_db() {
     exp_name_inputs=$1
-    bash $SCRIPTS_DIR/group_experiments_to_db.sh -n -e $exp_name_inputs -d $db_name
+
+    if [[ $clickhouse == 1 ]]; then
+      bootstrap_clickhouse $db_name
+      bash $SCRIPTS_DIR/group_experiments_to_clickhouse.sh -n -e $exp_name_inputs -d $db_name
+    else
+      quietly_bootstrap_db $db_name
+      bash $SCRIPTS_DIR/group_experiments_to_db.sh -n -e $exp_name_inputs -d $db_name
+    fi
   }
 
   group_experiments_to_file() {
@@ -171,7 +180,6 @@ main() {
       echo ""
       echo "Grouping experiments:"
 
-      quietly_bootstrap_db $db_name
       if [[ $use_file_based_grouping == 1 ]]; then
         group_experiments_to_file $exp_name_inputs
       else

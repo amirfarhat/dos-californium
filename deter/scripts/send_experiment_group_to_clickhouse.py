@@ -460,9 +460,9 @@ def insert_event(message_patterns_df, real_df, log=False):
         .to_pandas()
     )
 
-    with Timer("\tCopying to event", log=log):
-      sql = """INSERT INTO {dbname}.event VALUES""".format(dbname=args.dbname)
-      client.insert_dataframe(sql, event_df, settings={ "max_block_size": 100_000, "use_numpy": True, "columnar": True })
+  with Timer("\tCopying to event", log=log):
+    sql = """INSERT INTO {dbname}.event VALUES""".format(dbname=args.dbname)
+    client.insert_dataframe(sql, event_df, settings={ "max_block_size": 100_000, "use_numpy": True, "columnar": True })
 
 def insert_metrics(expname_map_config):
   """
@@ -609,7 +609,7 @@ def main():
 
   # Insert all the packets captured in the experiments
   with Timer("Inserting messages", print_header=True):
-    insert_packets(lazy_df)
+    insert_packets(lazy_df, log=True)
 
 if __name__ == "__main__":
   import doctest
