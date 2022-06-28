@@ -71,7 +71,7 @@ def parse_args():
                       nargs='?', action='store', default="", type=str)
 
   # DTLS vs plain CoAP over UDP
-  parser.add_argument("--dtls", action="store_true")
+  parser.add_argument("--dtls", action="store", default=None, type=int)
 
   # Meta Information
   parser.add_argument('-f', '--flood', dest='flood',
@@ -82,6 +82,11 @@ def parse_args():
                       nargs='?', action='store', default=-1, type=int)
 
   args = parser.parse_args()
+
+  # Convert 0/1 int DTLS to False/True bool
+  if args.dtls not in (0, 1):
+    raise Exception("DTLS can only be one of (0, 1)")
+  args.dtls = bool(args.dtls)
   
   # Platform-specific config
   args.dev = True if platform().lower().startswith("macos") else False

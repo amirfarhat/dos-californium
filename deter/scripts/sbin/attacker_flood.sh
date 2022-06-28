@@ -8,7 +8,7 @@ touch $TMP_DATA/$ATTACKER_LOGNAME
 PROXY_IP=`bash $SCRIPTS_HOME/fetchips.sh proxy`
 ORIGIN_SERVER_IP=`bash $SCRIPTS_HOME/fetchips.sh proxy originserver`
 
-if [[ $SPOOF_ATTACKER_SOURCE == 1 ]]; then
+if [[ $SPOOF_ATTACKER_SOURCE == 1 && $RUN_PROXY_WITH_DTLS == 0  ]]; then
   ATTACKER_SOURCE_IP=`bash $SCRIPTS_HOME/fetchips.sh proxy receiver`
 else
   ATTACKER_SOURCE_IP=`bash $SCRIPTS_HOME/fetchips.sh proxy attacker`
@@ -37,26 +37,21 @@ fi
 # Delay the start of the attacker
 sleep $ATTACKER_START_LAG_DURATION
 
-# Then start the attacker in background. Start the right attacker based on whether
-# DTLS is activated or not. Combining both in the same script is difficult due to
-# the execution of the handshake in python3
-if [[ $RUN_PROXY_WITH_DTLS -eq 1 ]]; then
-  ((sudo java -jar $CF_PROXY_JAR DoSDTLSAttacker "$coap_proxy_uri" "$proxy_uri") > $TMP_DATA/$ATTACKER_LOGNAME 2>&1) &
-  
-else
-  (python3 $SCRIPTS_HOME/coapspoofer.py \
-    --debug \
-    --source $ATTACKER_SOURCE_IP \
-    --src-port $ATTACKER_SPOOFED_PORT \
-    --destination $PROXY_IP \
-    --dst-port $dst_port \
-    --message-type CON \
-    --code 001 \
-    --uri-host $PROXY_IP \
-    --uri-path $uri_path \
-    --proxy-uri $proxy_uri \
-    --flood True > $TMP_DATA/$ATTACKER_LOGNAME) &
-fi
+# Then start the attacker in background. Starts the right attacker 
+# based on whether DTLS is activated or not.
+(python3 $SCRIPTS_HOME/coapspoofer.py \
+  --debug \
+  --dtls $RUN_PROXY_WITH_DTLS \
+  --source $ATTACKER_SOURCE_IP \
+  --src-port $ATTACKER_SPOOFED_PORT \
+  --destination $PROXY_IP \
+  --dst-port $dst_port \
+  --message-type CON \
+  --code 001 \
+  --uri-host $PROXY_IP \
+  --uri-path $uri_path \
+  --proxy-uri $proxy_uri \
+  --flood True > $TMP_DATA/$ATTACKER_LOGNAME) &
 
 # Kill attacker after it's run in the background for the desired duration
 spoofer_pid=$!
