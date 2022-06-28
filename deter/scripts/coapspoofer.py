@@ -7,11 +7,15 @@ import struct
 import socket
 import random
 import argparse
-import threading
 
-from pprint import pprint
+from typing import Tuple
 from platform import platform
 from collections import OrderedDict
+from mbedtls.tls import (
+  DTLSConfiguration,
+  TLSWrappedSocket,
+  ClientContext
+)
 
 def parse_args():
   """
@@ -66,6 +70,9 @@ def parse_args():
                       help='Payload of the CoAP Message to send',
                       nargs='?', action='store', default="", type=str)
 
+  # DTLS vs plain CoAP over UDP
+  parser.add_argument("--dtls", action="store_true")
+
   # Meta Information
   parser.add_argument('-f', '--flood', dest='flood',
                       help='Flag indicating whether to send packets at line rate',
@@ -78,8 +85,10 @@ def parse_args():
   
   # Platform-specific config
   args.dev = True if platform().lower().startswith("macos") else False
+
   return args
   
+PSK : Tuple[str, bytes] = ("Client_identity", b"secretPSK")
 args = parse_args()
 
 # --------------------------------------------------------------------------------
@@ -421,49 +430,34 @@ class CoAPMessage:
     """
     return random.randint(0, cls.MAX_MESSAGE_ID)
 
-class CoAPReceiver(threading.Thread):
-  MAX_RECV_SIZE = 4096
-
-  def __init__(self, sock):
-    super().__init__()
-    self.sock = sock
-
-  def run(self):
-    while True:
-      response = self.sock.recv(self.MAX_RECV_SIZE)
-      self.parse_raw_response(response)
-
-  @classmethod
-  def parse_raw_response(cls, response):
-    header_bytes = struct.unpack("!I", response[:4])[0]
-    print(header_bytes)
-
-    # Decode and chop off: Message ID
-    message_id = header_bytes & ((1 << 16) - 1)
-    print(f"message_id: {message_id}")
-    header_bytes >>= 16
-
-    # Decode and chop off: Code (Class|Detail)
-    code_bytes = header_bytes & ((1 << 8) - 1)
-    d = code_bytes & ((1 << 5) - 1)
-    code_bytes >>= 5
-    c = code_bytes & ((1 << 3) - 1)
-    code_bytes >>= 3
-    print(f"class: {c}.{d:02}")
-    header_bytes >>= 8
-
-    # Decode and chop off: Token Length
-
-
 def create_socket():
   """
-  Create an IPv4 socket
+  Create an IPv4 socket or TLS-wrapped socket
   """
+  # Create OS socket to send datagrams.
   if args.dev:
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     sock.bind((args.source, args.src_port))
   else:
     sock = socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_RAW)
+
+  # Optionally wrap the OS socket with DTLS.
+  if args.dtls:
+    dtls_configuration: DTLSConfiguration = DTLSConfiguration(
+      pre_shared_key=PSK,
+      validate_certificates=False,
+    )
+    dtls_socket: TLSWrappedSocket = (
+      ClientContext(dtls_configuration)
+      .wrap_socket(
+        socket=sock,
+        server_hostname=None
+      )
+    )
+    dtls_socket.connect((args.destination, args.dst_port))
+    dtls_socket.do_handshake()
+    sock = dtls_socket
+
   return sock
 
 def coap_message_generator():
@@ -495,8 +489,12 @@ def send_coap_message(sock, message):
     ip_header = IPv4Header(packed_udp)
     packet = ip_header.pack() + packed_udp
 
-  bytes_sent = sock.sendto(packet, (args.destination, args.dst_port))
-  print(f"Sent {bytes_sent} bytes")
+  if args.dtls:
+    bytes_sent = sock.send(packet)
+  else:
+    bytes_sent = sock.sendto(packet, (args.destination, args.dst_port))
+  
+  # print(f"Sent {bytes_sent} bytes")
 
 def main():
   if args.flood and args.num_messages > 0:
@@ -504,8 +502,6 @@ def main():
 
   sock = create_socket()
   gen = coap_message_generator()
-
-  # CoAPReceiver(sock).start()
 
   try:
     sent = 0
