@@ -14,7 +14,8 @@ from collections import OrderedDict
 from mbedtls.tls import (
   DTLSConfiguration,
   TLSWrappedSocket,
-  ClientContext
+  ClientContext,
+  WantReadError,
 )
 
 def parse_args():
@@ -440,7 +441,7 @@ def create_socket():
   Create an IPv4 socket or TLS-wrapped socket
   """
   # Create OS socket to send datagrams.
-  if args.dev:
+  if args.dev or args.dtls:
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     sock.bind((args.source, args.src_port))
   else:
@@ -485,7 +486,7 @@ def coap_message_generator():
 def send_coap_message(sock, message):
   packed_coap_message = message.pack()
   
-  if args.dev:
+  if args.dev or args.dtls:
     packet = packed_coap_message
   else:
     udp_packet = UDPPacket(packed_coap_message)
