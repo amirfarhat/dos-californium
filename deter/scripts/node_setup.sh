@@ -23,6 +23,10 @@ sudo apt install -y iperf traceroute moreutils apache2 httpie linux-tools-generi
 # Install Java: JDK, JRE
 sudo apt install -y openjdk-11-jdk openjdk-11-jre
 
+# Install pip and python-mbedtls
+sudo apt install -y python3-pip
+pip3 install -i https://fbsd-build.isi.deterlab.net/pypi/web/simple python-mbedtls
+
 # Configure Apache HTTP Server
 if [[ $my_hostname == "originserver" ]]; then
   sudo bash $SCRIPTS_HOME/setup_apache_http_server_ssl.sh
