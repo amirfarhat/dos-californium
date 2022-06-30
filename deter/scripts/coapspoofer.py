@@ -92,6 +92,8 @@ def parse_args():
   # Platform-specific config
   args.dev = True if platform().lower().startswith("macos") else False
 
+  print(args)
+
   return args
   
 PSK : Tuple[str, bytes] = ("Client_identity", b"secretPSK")
