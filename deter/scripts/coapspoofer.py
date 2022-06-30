@@ -7,15 +7,15 @@ import struct
 import socket
 import random
 import argparse
+import traceback
 
-from typing import Tuple
+from typing import Tuple, Union
 from platform import platform
 from collections import OrderedDict
 from mbedtls.tls import (
   DTLSConfiguration,
   TLSWrappedSocket,
   ClientContext,
-  WantReadError,
 )
 
 def parse_args():
@@ -440,12 +440,20 @@ def create_socket():
   """
   Create an IPv4 socket or TLS-wrapped socket
   """
-  # Create OS socket to send datagrams.
   if args.dev or args.dtls:
+    # Development or DTLS do not need spoofing, so we 
+    # spawn and bind a datagram socket.
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     sock.bind((args.source, args.src_port))
   else:
+    # Otherwise we might need to spoof by crafting IP+
+    # packets, so we need a raw IP socket.
     sock = socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_RAW)
+
+  # From socket docs: "rReuse a local socket in [kernel] TIME_WAIT state, 
+  # without waiting for its natural timeout to expire".
+  # Source: https://docs.python.org/3/library/socket.html
+  sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
   # Optionally wrap the OS socket with DTLS.
   if args.dtls:
@@ -467,7 +475,6 @@ def create_socket():
   return sock
 
 def coap_message_generator():
-
   # Generate first message
   coap_message = CoAPMessage(suffix_mid_tok=True)
   yield coap_message
@@ -483,49 +490,76 @@ def coap_message_generator():
     coap_message = CoAPMessage(msg_id=mid, suffix_mid_tok=True)
     yield coap_message
 
-def send_coap_message(sock, message):
+def send_coap_message_dev(sock, message):
+  # Sends on top of raw SOCK_DGRAM socket.
   packed_coap_message = message.pack()
-  
-  if args.dev or args.dtls:
-    packet = packed_coap_message
-  else:
-    udp_packet = UDPPacket(packed_coap_message)
-    packed_udp = udp_packet.pack()
+  packet = packed_coap_message
+  sock.sendto(packet, (args.destination, args.dst_port))
 
-    ip_header = IPv4Header(packed_udp)
-    packet = ip_header.pack() + packed_udp
+def send_coap_message_dtls(sock, message):
+  # Sends on top of DTLS-wrapped SOCK_DGRAM socket.
+  packed_coap_message = message.pack()
+  packet = packed_coap_message
+  sock.send(packet)
 
+def send_coap_message_spoof(sock, message):
+  # Sends on top of IPPROTO_RAW socket.
+  packed_coap_message = message.pack()
+  udp_packet = UDPPacket(packed_coap_message)
+  packed_udp = udp_packet.pack()
+  ip_header = IPv4Header(packed_udp)
+  packet = ip_header.pack() + packed_udp
+  sock.sendto(packet, (args.destination, args.dst_port))
+
+def shutdown(sent, sock: Union[TLSWrappedSocket, socket.socket]):
+  print(f"Sent {sent} messages")
+
+  # Disable read and write on the socket. Only valid for
+  # connection-having sockets.
   if args.dtls:
-    bytes_sent = sock.send(packet)
-  else:
-    bytes_sent = sock.sendto(packet, (args.destination, args.dst_port))
-  
-  # print(f"Sent {bytes_sent} bytes")
+    sock.shutdown(socket.SHUT_RDWR)
+
+  # Then decrement the kernel ref count for the socket.
+  sock.close()
+
+  sys.exit(0)
 
 def main():
   if args.flood and args.num_messages > 0:
-    raise ValueError("Err: Either flood or num_messages, not both")
+    raise ValueError("Error: Either flood or num_messages, not both")
 
   sock = create_socket()
   gen = coap_message_generator()
 
+  # We use a different sending procedure depending
+  # on whether this is a dev machine or testbed machine,
+  # and on whether DTLS is enabled.
+  if args.dtls:
+    send_func = send_coap_message_dtls
+  elif args.dev:
+     send_func = send_coap_message_dev
+  else:
+    send_func = send_coap_message_spoof
+
+  # Send messages depending on the sending mode: fixed or flood.
   try:
     sent = 0
     if args.flood:
       while True:
         message = next(gen)
-        send_coap_message(sock, message)
+        send_func(sock, message)
         sent += 1
     else:
       for _ in range(args.num_messages):
         message = next(gen)
-        send_coap_message(sock, message)
+        send_func(sock, message)
         sent += 1
-  except KeyboardInterrupt:
-    print(f"Sent {sent}")
-    sys.exit(0)
-  print(f"Sent {sent}")
-
+  except Exception as e:
+    traceback.print_exc(file=sys.stderr)
+  finally:
+    # Finally, when done, shut down the socket.
+    shutdown(sent, sock)
+  
 if __name__ == "__main__":
   import doctest
   doctest.testmod()
