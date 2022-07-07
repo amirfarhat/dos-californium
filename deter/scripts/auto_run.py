@@ -113,17 +113,18 @@ CONFIG_NAME_MAP_GET_READABLE_VALUE_FUNC = {
 # Map from configuration variable names to
 # collections of the desired value ranges they
 # should take on in a cartesian product.
+# Aligner: https://www.browserling.com/tools/text-format-columns
 CONFIG_NAME_MAP_VALUE_PERTURBATIONS = [
-  ("RUN_PROXY_WITH_DTLS", range(2)),
-  ("RUN_PROXY_WITH_HTTPS", [1]),
-  ("NUM_CLIENTS", range(1, 8+1, 1)),
-  ("RUN_ATTACKER", [0]),
-  ("ORIGIN_SERVER_DURATION", [140]),
-  ("PROXY_DURATION", [140]),
+  ("RUN_PROXY_WITH_DTLS",         range(2)),
+  ("RUN_PROXY_WITH_HTTPS",        [1]),
+  ("NUM_CLIENTS",                 range(1, 8+1, 1)),
+  ("RUN_ATTACKER",                [0]),
+  ("ORIGIN_SERVER_DURATION",      [140]),
+  ("PROXY_DURATION",              [140]),
   ("ATTACKER_START_LAG_DURATION", [30]),
-  ("ATTACKER_DURATION", [30]),
-  ("RECEIVER_DURATION", [140]),
-  ("CLIENT_DURATION", [120]),
+  ("ATTACKER_DURATION",           [30]),
+  ("RECEIVER_DURATION",           [140]),
+  ("CLIENT_DURATION",             [120]),
 ]
 
 # Base name of the experiment to build on with
