@@ -1,8 +1,10 @@
 #!/usr/bin/env python2
 
 import os
+import sys
 import argparse
 import itertools
+from pprint import pprint
 
 ### You likely do not need to change the code
 ### anywhere in the blocks below, except where
@@ -92,10 +94,16 @@ second_item = lambda t: t[1]
 # supplied configuration variable value argument
 # to a human-readable equivalent.
 CONFIG_NAME_MAP_GET_READABLE_VALUE_FUNC = {
-  "RUN_ATTACKER"        : lambda v: {1: "withattacker" , 0: "noattacker"}[v],
-  "RUN_PROXY_WITH_DTLS" : lambda v: {1: "dtls" , 0: "coap"}[v],
-  "RUN_PROXY_WITH_HTTPS": lambda v: {1: "https", 0: "http"}[v],
-  "NUM_CLIENTS"         : lambda v: "{}clients".format(v),
+  "RUN_ATTACKER"               : lambda v: {1: "withattacker" , 0: "noattacker"}[v],
+  "RUN_PROXY_WITH_DTLS"        : lambda v: {1: "dtls" , 0: "coap"}[v],
+  "RUN_PROXY_WITH_HTTPS"       : lambda v: {1: "https", 0: "http"}[v],
+  "NUM_CLIENTS"                : lambda v: "{}clients".format(v),
+  "PROXY_DURATION"             : lambda v: "{}sec_proxy".format(v),
+  "ATTACKER_DURATION"          : lambda v: "{}sec_attacker".format(v),
+  "CLIENT_DURATION"            : lambda v: "{}sec_client".format(v),
+  "ORIGIN_SERVER_DURATION"     : lambda v: "",
+  "ATTACKER_START_LAG_DURATION": lambda v: "",
+  "RECEIVER_DURATION"          : lambda v: "",
 }
 
 ###
@@ -106,10 +114,16 @@ CONFIG_NAME_MAP_GET_READABLE_VALUE_FUNC = {
 # collections of the desired value ranges they
 # should take on in a cartesian product.
 CONFIG_NAME_MAP_VALUE_PERTURBATIONS = [
-  ("RUN_PROXY_WITH_DTLS" , range(2)),
-  ("RUN_PROXY_WITH_HTTPS", range(2)),
-  ("NUM_CLIENTS"         , range(1, 8+1, 1)),
-  ("RUN_ATTACKER"        , [0]),
+  ("RUN_PROXY_WITH_DTLS", range(2)),
+  ("RUN_PROXY_WITH_HTTPS", [1]),
+  ("NUM_CLIENTS", range(1, 8+1, 1)),
+  ("RUN_ATTACKER", [0]),
+  ("ORIGIN_SERVER_DURATION", [140]),
+  ("PROXY_DURATION", [140]),
+  ("ATTACKER_START_LAG_DURATION", [30]),
+  ("ATTACKER_DURATION", [30]),
+  ("RECEIVER_DURATION", [140]),
+  ("CLIENT_DURATION", [120]),
 ]
 
 # Base name of the experiment to build on with
@@ -126,8 +140,17 @@ NUM_TRIALS    = 5
 
 def main():
   args = parse_args()
+  experiment_runs = make_experiment_runs()
 
-  for exp_dict in make_experiment_runs():
+  # Display the experiments and ask the user to review
+  # them before moving forward with experiment running.
+  for exp_dict in experiment_runs:
+    pprint(exp_dict)
+  user_input = raw_input("Do these " + str(len(experiment_runs)) + " experiments look OK? [y/n]? ").lower()
+  if user_input == "n":
+    sys.exit(0)
+
+  for exp_dict in experiment_runs:
     # Modify config file in-place.
     modify_config(exp_dict, args.config)
 
