@@ -2,6 +2,7 @@
 
 import os
 import sys
+import signal
 import argparse
 import itertools
 from pprint import pprint
@@ -139,6 +140,21 @@ NUM_TRIALS    = 5
 ### then running the experiments with it.
 ###
 
+def run_child(raw_run_args):
+  try:
+    os.system(raw_run_args)
+  except KeyboardInterrupt:
+    print("pid " + str(os.getpid()) + " interrupted. Exitting.")
+
+def wait_for_child(child_pid):
+  try:
+    os.wait()
+  except KeyboardInterrupt:
+    print("Parent interrupted. Killing child pid " + str(child_pid) + " and exitting.")
+    os.kill(child_pid, signal.SIGKILL)
+  finally:
+    sys.exit(0)
+
 def main():
   args = parse_args()
   experiment_runs = make_experiment_runs()
@@ -163,10 +179,11 @@ def main():
       str(NUM_TRIALS),
       exp_dict["exp_name"],
     )
-    if os.fork() == 0:
-      os.system(raw_run_args)
+    pid = os.fork()
+    if pid == 0:
+      run_child(raw_run_args)
     else:
-      os.wait()
+      wait_for_child(pid)
 
 if __name__ == "__main__":
   import doctest
