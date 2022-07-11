@@ -53,7 +53,7 @@ mkdir -p $log_dir
 # Split input exp_names by comma into bash array exp_name_inputs_array
 readarray -td, exp_name_inputs_array <<<"$exp_name_inputs,"; unset 'exp_name_inputs_array[-1]';
 
-# Assert that there are no zip files
+# Assert that there are no zip files in supplied names
 for e in ${exp_name_inputs_array[@]}; do
   if [[ $e == *.zip ]]; then
     echo "Experiment $e is a .zip file, this is not allowed"
@@ -61,36 +61,51 @@ for e in ${exp_name_inputs_array[@]}; do
   fi
 done
 
-# Fetch all experiments from deter
+# Optionally fetch all experiments from deter
 if [[ $no_fetch_experiments == 0 ]]; then
   printf -v scp_target "$REMOTE_EXP_DIR/%s.zip " "${exp_name_inputs_array[@]}"
   scp -r amirf@users.deterlab.net:"$scp_target" $DATA_DIR
 fi
 
-# Collect all experiment directories and names found
-exp_dirs_found=()
-exp_names_found=()
+# Find the collection of matching experiments. Look for
+# zip-terminated experiment files since all experiments
+# have a zip-terminated original file.
+declare -A unzipped_exp_name_map_zipped_exp_dir
 for e in ${exp_name_inputs_array[@]}; do
   num_dirs_found=$(find $DATA_DIR/$e -maxdepth 0 -type d 2> /dev/null | wc -l)
-  if [[ $num_dirs_found == 0 ]]; then
-    num_zips_found=$(find $DATA_DIR/$e.zip -maxdepth 0 -type f 2> /dev/null | wc -l)
-    if [[ $num_zips_found == 0 ]]; then
-      echo "Experiment $e not found. Fetch the experiment from deter using the no_fetch_experiments flag"
-      exit 1
-    else
-      for exp_zip in $(find $DATA_DIR/$e.zip -maxdepth 0 -type f); do
-        exp_name=$(basename $exp_zip)
-        exp_dirs_found+=($exp_zip)
-        exp_names_found+=($exp_name)
-      done
-    fi
-  else
-    for exp_dir in $(find $DATA_DIR/$e -maxdepth 0 -type d); do
-      exp_name=$(basename $exp_dir)
-      exp_dirs_found+=($exp_dir)
-      exp_names_found+=($exp_name)
-    done
+  num_zips_found=$(find $DATA_DIR/$e.zip -maxdepth 0 -type f 2> /dev/null | wc -l)
+
+  if [[ $num_dirs_found == 0 || $num_zips_found == 0 ]]; then
+    # We found no experiments with matching names.
+    echo "Experiment $e not found. Fetch the experiment from deter using the no_fetch_experiments flag"
+    exit 1
   fi
+  if [[ $num_zips_found < $num_dirs_found ]]; then
+    # We found some experiments which don't have an
+    # original zip file.
+    echo "Some experiments do not have original zip file"
+    exit 1
+  fi
+
+  # Then add any found zipped experiment directories.
+  # that have not been added yet.
+  for zipped_exp_dir in $(find $DATA_DIR/$e.zip -maxdepth 0 -type f); do
+    exp_name=$(basename $zipped_exp_dir)
+    unzipped_exp_name=${exp_name%.zip}
+    unzipped_exp_name=$(echo -e "$unzipped_exp_name" | tr -d '[:space:]')
+    if ! contains $unzipped_exp_name $unzipped_exp_name_map_zipped_exp_dir; then
+      unzipped_exp_name_map_zipped_exp_dir[$unzipped_exp_name]=$zipped_exp_dir
+    fi
+  done
+done
+
+# Set all the experiment names and directories found.
+exp_dirs_found=()
+exp_names_found=()
+for exp_name in "${!unzipped_exp_name_map_zipped_exp_dir[@]}"; do
+  exp_dir=${unzipped_exp_name_map_zipped_exp_dir[$exp_name]}
+  exp_names_found+=($exp_name)
+  exp_dirs_found+=($exp_dir)
 done
 
 # Prompt the user whether they wish to process all experiments
