@@ -98,6 +98,8 @@ CONFIG_NAME_MAP_GET_READABLE_VALUE_FUNC = {
   "RUN_ATTACKER"               : lambda v: {1: "withattacker" , 0: "noattacker"}[v],
   "RUN_PROXY_WITH_DTLS"        : lambda v: {1: "dtls" , 0: "coap"}[v],
   "RUN_PROXY_WITH_HTTPS"       : lambda v: {1: "https", 0: "http"}[v],
+  "NUM_PROXY_CONNECTIONS"      : lambda v: "{}proxyconns".format(v),
+  "PROXY_HEAP_SIZE_MB"         : lambda v: "{}MBheap".format(v),
   "NUM_CLIENTS"                : lambda v: "{}clients".format(v),
   "PROXY_DURATION"             : lambda v: "{}sec_proxy".format(v),
   "ATTACKER_DURATION"          : lambda v: "{}sec_attacker".format(v),
@@ -116,10 +118,23 @@ CONFIG_NAME_MAP_GET_READABLE_VALUE_FUNC = {
 # should take on in a cartesian product.
 # Aligner: https://www.browserling.com/tools/text-format-columns
 CONFIG_NAME_MAP_VALUE_PERTURBATIONS = [
-  ("RUN_PROXY_WITH_DTLS",         range(2)),
+  # Clients
+  ("NUM_CLIENTS",                 [8]),
+
+  # Attack
+  ("RUN_ATTACKER",                [1]),
+
+  # Proxy
+  ("PROXY_HEAP_SIZE_MB",          [8000]),
+  # ("PROXY_HEAP_SIZE_MB",          list(range(1000,10000+1, 1000))),
+  ("NUM_PROXY_CONNECTIONS",       list(range(10,110+1, 10))),
+  # ("NUM_PROXY_CONNECTIONS",       [50]),
+
+  # Transport protocols
+  ("RUN_PROXY_WITH_DTLS",         [0, 1]),
   ("RUN_PROXY_WITH_HTTPS",        [1]),
-  ("NUM_CLIENTS",                 range(1, 8+1, 1)),
-  ("RUN_ATTACKER",                [0]),
+
+  # Durations
   ("ORIGIN_SERVER_DURATION",      [140]),
   ("PROXY_DURATION",              [140]),
   ("ATTACKER_START_LAG_DURATION", [30]),
@@ -131,7 +146,7 @@ CONFIG_NAME_MAP_VALUE_PERTURBATIONS = [
 # Base name of the experiment to build on with
 # varied configuration variable values, along
 # with number of trials to run the experiment for.
-BASE_EXP_NAME = "thesis_group_num_clients"
+BASE_EXP_NAME = "thesis_group_controlling_proxy_rtt"
 NUM_TRIALS    = 5
 
 ###
