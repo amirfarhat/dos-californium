@@ -125,10 +125,8 @@ CONFIG_NAME_MAP_VALUE_PERTURBATIONS = [
   ("RUN_ATTACKER",                [1]),
 
   # Proxy
-  ("PROXY_HEAP_SIZE_MB",          [8000]),
-  # ("PROXY_HEAP_SIZE_MB",          list(range(1000,10000+1, 1000))),
-  ("NUM_PROXY_CONNECTIONS",       list(range(10,110+1, 10))),
-  # ("NUM_PROXY_CONNECTIONS",       [50]),
+  ("PROXY_HEAP_SIZE_MB",          list(range(1000,10000+1, 1000))),
+  ("NUM_PROXY_CONNECTIONS",       [50]),
 
   # Transport protocols
   ("RUN_PROXY_WITH_DTLS",         [0, 1]),
