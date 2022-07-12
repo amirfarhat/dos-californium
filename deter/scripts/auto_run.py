@@ -90,6 +90,40 @@ def make_experiment_runs():
 first_item  = lambda t: t[0]
 second_item = lambda t: t[1]
 
+def fmt_decimal(v):
+  """
+  >>> fmt_decimal(1)
+  '1'
+  >>> fmt_decimal(2)
+  '2'
+  >>> fmt_decimal(29)
+  '29'
+  >>> fmt_decimal(1.0)
+  '1o0'
+  >>> fmt_decimal(1.5)
+  '1o5'
+  >>> fmt_decimal(2.0)
+  '2o0'
+  >>> fmt_decimal(98.76)
+  '98o76'
+  """
+  return "o".join(str(v).split("."))
+
+def fmt_unitted(v):
+  """
+  >>> fmt_unitted("1[s]")
+  '1sec'
+  >>> fmt_unitted("2[s]")
+  '2sec'
+  >>> fmt_unitted("10[s]")
+  '10sec'
+  >>> fmt_unitted("99[s]")
+  '99sec'
+  >>> fmt_unitted("12.3[s]")
+  '12o3sec'
+  """
+  return fmt_decimal(v).replace("[s]", "sec")
+
 # Map a configuration variable name to a 
 # single-argument function which converts its
 # supplied configuration variable value argument
@@ -104,6 +138,9 @@ CONFIG_NAME_MAP_GET_READABLE_VALUE_FUNC = {
   "PROXY_DURATION"             : lambda v: "{}sec_proxy".format(v),
   "ATTACKER_DURATION"          : lambda v: "{}sec_attacker".format(v),
   "CLIENT_DURATION"            : lambda v: "{}sec_client".format(v),
+  "REQUEST_TIMEOUT"            : lambda v: "{}_pxyto".format(fmt_unitted(v)),
+  "ACK_TIMEOUT"                : lambda v: "{}_ackto".format(fmt_unitted(v)),
+  "ACK_TIMEOUT_SCALE"          : lambda v: "{}_acktoscale".format(fmt_decimal(v)),
   "ORIGIN_SERVER_DURATION"     : lambda v: "",
   "ATTACKER_START_LAG_DURATION": lambda v: "",
   "RECEIVER_DURATION"          : lambda v: "",
@@ -119,32 +156,33 @@ CONFIG_NAME_MAP_GET_READABLE_VALUE_FUNC = {
 # Aligner: https://www.browserling.com/tools/text-format-columns
 CONFIG_NAME_MAP_VALUE_PERTURBATIONS = [
   # Clients
-  ("NUM_CLIENTS",                 [8]),
+  ( "NUM_CLIENTS",                 [8] ),
 
   # Attack
-  ("RUN_ATTACKER",                [1]),
+  ( "RUN_ATTACKER",                [1] ),
 
   # Proxy
-  ("PROXY_HEAP_SIZE_MB",          list(range(1000,10000+1, 1000))),
-  ("NUM_PROXY_CONNECTIONS",       [50]),
+  ( "PROXY_HEAP_SIZE_MB",          [8000] ),
+  ( "NUM_PROXY_CONNECTIONS",       [50] ),
+  ( "REQUEST_TIMEOUT",             ["5[s]", "15[s]", "30[s]", "45[s]", "60[s]"] ),
 
   # Transport protocols
-  ("RUN_PROXY_WITH_DTLS",         [0, 1]),
-  ("RUN_PROXY_WITH_HTTPS",        [1]),
+  ( "RUN_PROXY_WITH_DTLS",         [0, 1] ),
+  ( "RUN_PROXY_WITH_HTTPS",        [1] ),
 
   # Durations
-  ("ORIGIN_SERVER_DURATION",      [140]),
-  ("PROXY_DURATION",              [140]),
-  ("ATTACKER_START_LAG_DURATION", [30]),
-  ("ATTACKER_DURATION",           [30]),
-  ("RECEIVER_DURATION",           [140]),
-  ("CLIENT_DURATION",             [120]),
+  ( "ORIGIN_SERVER_DURATION",      [140] ),
+  ( "PROXY_DURATION",              [140] ),
+  ( "ATTACKER_START_LAG_DURATION", [30] ),
+  ( "ATTACKER_DURATION",           [30] ),
+  ( "RECEIVER_DURATION",           [140] ),
+  ( "CLIENT_DURATION",             [120] ),
 ]
 
 # Base name of the experiment to build on with
 # varied configuration variable values, along
 # with number of trials to run the experiment for.
-BASE_EXP_NAME = "thesis_group_controlling_proxy_rtt"
+BASE_EXP_NAME = "thesis_group_proxy_occ_timeout"
 NUM_TRIALS    = 5
 
 ###
