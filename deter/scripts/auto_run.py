@@ -162,9 +162,9 @@ CONFIG_NAME_MAP_VALUE_PERTURBATIONS = [
   ( "RUN_ATTACKER",                [1] ),
 
   # Proxy
-  ( "PROXY_HEAP_SIZE_MB",          [8000] ),
-  ( "NUM_PROXY_CONNECTIONS",       [50] ),
-  ( "REQUEST_TIMEOUT",             ["5[s]", "15[s]", "30[s]", "45[s]", "60[s]"] ),
+  ( "PROXY_HEAP_SIZE_MB",          ["8000"] ),
+  ( "NUM_PROXY_CONNECTIONS",       ["50"] ),
+  # ( "REQUEST_TIMEOUT",             ["5[s]", "15[s]", "30[s]", "45[s]", "60[s]"] ),
 
   # Transport protocols
   ( "RUN_PROXY_WITH_DTLS",         [0, 1] ),
