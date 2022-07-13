@@ -5,13 +5,14 @@ source $(find ~/*californium -name shell_utils.sh)
 usage() {
   cat <<EOM
   Usage:
-    $(basename $0) -e exp_name_inputs -d db_name -n no_fetch_experiments -c clean_before_processing -f use_file_based_grouping -s skip_grouping -h clickhouse
+    $(basename $0) -e exp_name_inputs -d db_name -n no_fetch_experiments -c clean_before_processing -f use_file_based_grouping -s skip_grouping -h clickhouse -o only_clean
     exp_name_inputs         - the names of the experiment that this script will process. Should
                               be comma-separated. Supports the use of wildcard in names. Experiment
                               names must not be zipped or compressed.
     db_name                 - the name of the database we should insert experiments' data into
     no_fetch_experiments    - flag to determine whether data must be fetched from deter
     clean_before_processing - flag to determine whether data must be fetched from deter
+    only_clean              - flag to choose only to clean experiments
 EOM
 }
 
@@ -21,7 +22,8 @@ clean_before_processing=0
 use_file_based_grouping=0
 skip_grouping=0
 clickhouse=0
-while getopts e:d:ncfsh opt; do
+only_clean=0
+while getopts e:d:ncfsho opt; do
   case $opt in
     e) exp_name_inputs=$OPTARG;;
     d) db_name=$OPTARG;;
@@ -30,6 +32,7 @@ while getopts e:d:ncfsh opt; do
     f) use_file_based_grouping=1;;
     s) skip_grouping=1;;
     h) clickhouse=1;;
+    o) only_clean=1;;
     *) usage
        exit 1;;
   esac
@@ -75,15 +78,15 @@ for e in ${exp_name_inputs_array[@]}; do
   num_dirs_found=$(find $DATA_DIR/$e -maxdepth 0 -type d 2> /dev/null | wc -l)
   num_zips_found=$(find $DATA_DIR/$e.zip -maxdepth 0 -type f 2> /dev/null | wc -l)
 
-  if [[ $num_dirs_found == 0 || $num_zips_found == 0 ]]; then
+  if [[ $num_zips_found == 0 ]]; then
     # We found no experiments with matching names.
     echo "Experiment $e not found. Fetch the experiment from deter using the no_fetch_experiments flag"
     exit 1
   fi
-  if [[ $num_zips_found < $num_dirs_found ]]; then
+  if [[ $num_zips_found -lt $num_dirs_found ]]; then
     # We found some experiments which don't have an
     # original zip file.
-    echo "Some experiments do not have original zip file"
+    echo "Some experiments do not have original zip file. $num_zips_found zips, $num_dirs_found dirs"
     exit 1
   fi
 
@@ -142,10 +145,15 @@ if [[ $clean_before_processing == 1 ]]; then
   echo ""
   echo -n "Cleaning all experiments..."
   for exp_dir in ${exp_dirs_to_process[@]}; do
-    exp_name=$(basename $exp_dir)
+    zipped_exp_name=$(basename $exp_dir)
+    exp_name=${zipped_exp_name%.zip}
     bash $SCRIPTS_DIR/clean_experiment.sh $exp_name 1> /dev/null
   done
   echo "Done"
+fi
+if [[ $only_clean == 1 ]]; then
+  echo "Specified only clean. Exiting"
+  exit 0
 fi
 
 main() {
