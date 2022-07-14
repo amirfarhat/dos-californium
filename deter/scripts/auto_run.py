@@ -138,6 +138,7 @@ CONFIG_NAME_MAP_GET_READABLE_VALUE_FUNC = {
   "PROXY_DURATION"             : lambda v: "{}sec_proxy".format(v),
   "ATTACKER_DURATION"          : lambda v: "{}sec_attacker".format(v),
   "CLIENT_DURATION"            : lambda v: "{}sec_client".format(v),
+  "REUSE_CONNECTIONS"          : lambda v: {"true": "reuseconns" , "false": "noconnreuse"}[v],
   "REQUEST_TIMEOUT"            : lambda v: "{}_pxyto".format(fmt_unitted(v)),
   "ACK_TIMEOUT"                : lambda v: "{}_ackto".format(fmt_unitted(v)),
   "ACK_TIMEOUT_SCALE"          : lambda v: "{}_acktoscale".format(fmt_decimal(v)),
@@ -159,12 +160,13 @@ CONFIG_NAME_MAP_VALUE_PERTURBATIONS = [
   ( "NUM_CLIENTS",                 [8] ),
 
   # Attack
-  ( "RUN_ATTACKER",                [1] ),
+  ( "RUN_ATTACKER",                [0, 1] ),
 
   # Proxy
   ( "PROXY_HEAP_SIZE_MB",          ["8000"] ),
   ( "NUM_PROXY_CONNECTIONS",       ["50"] ),
-  # ( "REQUEST_TIMEOUT",             ["5[s]", "15[s]", "30[s]", "45[s]", "60[s]"] ),
+  ( "REQUEST_TIMEOUT",             ["5[s]"] ),
+  ( "REUSE_CONNECTIONS",           ["true", "false"] ),
 
   # Transport protocols
   ( "RUN_PROXY_WITH_DTLS",         [0, 1] ),
@@ -182,7 +184,7 @@ CONFIG_NAME_MAP_VALUE_PERTURBATIONS = [
 # Base name of the experiment to build on with
 # varied configuration variable values, along
 # with number of trials to run the experiment for.
-BASE_EXP_NAME = "thesis_group_proxy_occ_timeout"
+BASE_EXP_NAME = "thesis_group_proxy_connection_reuse"
 NUM_TRIALS    = 5
 
 ###
