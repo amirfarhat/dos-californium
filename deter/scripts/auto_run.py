@@ -145,6 +145,8 @@ CONFIG_NAME_MAP_GET_READABLE_VALUE_FUNC = {
   "ORIGIN_SERVER_DURATION"     : lambda v: "",
   "ATTACKER_START_LAG_DURATION": lambda v: "",
   "RECEIVER_DURATION"          : lambda v: "",
+  "ACK_INIT_RANDOM"            : lambda v: "",
+  "MAX_RETRANSMIT"             : lambda v: "",
 }
 
 ###
@@ -158,15 +160,19 @@ CONFIG_NAME_MAP_GET_READABLE_VALUE_FUNC = {
 CONFIG_NAME_MAP_VALUE_PERTURBATIONS = [
   # Clients
   ( "NUM_CLIENTS",                 [8] ),
+  ( "ACK_INIT_RANDOM",             ["0"] ),
+  ( "MAX_RETRANSMIT",              ["99"] ),
+  ( "ACK_TIMEOUT",                 ["1[s]", "2[s]", "3[s]"] ),
+  ( "ACK_TIMEOUT_SCALE",           ["2.0", "1.5", "1.0"] ),
 
   # Attack
-  ( "RUN_ATTACKER",                [0, 1] ),
+  ( "RUN_ATTACKER",                [1] ),
 
   # Proxy
   ( "PROXY_HEAP_SIZE_MB",          ["8000"] ),
   ( "NUM_PROXY_CONNECTIONS",       ["50"] ),
   ( "REQUEST_TIMEOUT",             ["5[s]"] ),
-  ( "REUSE_CONNECTIONS",           ["true", "false"] ),
+  ( "REUSE_CONNECTIONS",           ["true"] ),
 
   # Transport protocols
   ( "RUN_PROXY_WITH_DTLS",         [0, 1] ),
@@ -184,7 +190,7 @@ CONFIG_NAME_MAP_VALUE_PERTURBATIONS = [
 # Base name of the experiment to build on with
 # varied configuration variable values, along
 # with number of trials to run the experiment for.
-BASE_EXP_NAME = "thesis_group_proxy_connection_reuse"
+BASE_EXP_NAME = "thesis_group_aggressive_client"
 NUM_TRIALS    = 5
 
 ###
