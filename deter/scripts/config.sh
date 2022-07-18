@@ -144,7 +144,7 @@ done
 
 # Client config found in properties files
 ACK_TIMEOUT="2[s]"
-ACK_INIT_RANDOM="1.5"
+ACK_INIT_RANDOM="0"
 ACK_TIMEOUT_SCALE="2.0"
 MAX_RETRANSMIT="4"
 NSTART="1"
