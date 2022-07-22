@@ -101,22 +101,22 @@ parse_tcpdumps() {
         basename_dump=$(basename $dump_file)
         processed_dump_file="$dump_file.out"
         processed_connections_file="$dump_file.connections.out"
+
+        # Fetch corresponding keylogfile if the experiment uses TLS
+        keylog_file=$dummy_keylogfile
+        if [[ $run_proxy_with_https -eq 1 ]]; then
+          echo $basename_dump
+          if [[ $basename_dump == "proxy_dump.pcap" ]]; then
+            keylog_file=$D/$proxy_keylogfile_name
+          elif [[ $basename_dump == "server_dump.pcap" ]]; then
+            keylog_file=$D/$origin_server_keylogfile_name
+          else
+            (:)
+          fi
+        fi
+
         if [[ ! -f $processed_dump_file ]]; then
           echo "Processing coap & http in $bd/`basename $dump_file`..."
-
-          # Fetch corresponding keylogfile if the experiment uses TLS
-          keylog_file=$dummy_keylogfile
-          if [[ $run_proxy_with_https -eq 1 ]]; then
-            echo $basename_dump
-            if [[ $basename_dump == "proxy_dump.pcap" ]]; then
-              keylog_file=$D/$proxy_keylogfile_name
-            elif [[ $basename_dump == "server_dump.pcap" ]]; then
-              keylog_file=$D/$origin_server_keylogfile_name
-            else
-              (:)
-            fi
-          fi
-
           # Transform the tcpdump fully for coap & http
           tf=$(mktemp)
           temp_files+=($tf)
@@ -124,12 +124,12 @@ parse_tcpdumps() {
           pids+=($!)
         fi
 
-        if [[ ! -f $processed_connections_file ]]; then
-          echo "Processing tcp in $bd/`basename $dump_file`..."
-          # Compress key TCP connections events
-          (bash $SCRIPTS_DIR/process_connections.sh $dump_file $processed_connections_file $keylog_file) &
-          pids+=($!)
-        fi
+        # if [[ ! -f $processed_connections_file ]]; then
+        echo "Processing tcp in $bd/`basename $dump_file`..."
+        # Compress key TCP connections events
+        (bash $SCRIPTS_DIR/process_connections.sh $dump_file $processed_connections_file $keylog_file) &
+        pids+=($!)
+        # fi
       done
     fi
   done
@@ -193,49 +193,37 @@ transform_data() {
 }
 time transform_data
 
-# | Step 4.2 | Transform experiment metrics to be DB-ready
+# | Step 4.2 | Transform connection data to be DB-ready
+transform_connections() {
+  pids=()
+  for D in $exp_dir/*; do
+    bd="$(basename $D)"
+    if [[ -d $D && $bd != "metadata" ]]; then
+      # Collect input files for processing
+      infiles=""
+      nice_infiles=""
+      for processed_connections_file in $D/*.connections.out; do
+        infiles+="$processed_connections_file;"
+        nice_infiles+="`basename $processed_connections_file`,"
+      done
+      # Process all input files into one file
+      # If not already processed before
+      outfile="$D/$unzipped_expname.connections.parquet"
+      # if [[ ! -f $outfile ]]; then
+      echo "Processing connections in $bd..."
+      (python3 $SCRIPTS_DIR/transform_experiment_connections.py -i $infiles -o $outfile -c $joined_config) &
+      pids+=($!)
+      # fi
+    fi
+  done
+  # And wait for all processing to finish
+  for pid in "${pids[@]}"; do
+    wait $pid
+  done
+  echo "Transformed connections"
+}
+time transform_connections
+
+# | Step 4.3 | Transform experiment metrics to be DB-ready
 echo "Processing metrics..."
 python3 $SCRIPTS_DIR/transform_experiment_metrics.py -m $metric_outfile
-
-# Finally, log some statistics
-function log_tcpdump_stats() {
-  local header=$1
-  local connections_file=$2
-  local httpoutfile=$3
-  local coapoutfile=$4
-  echo "    $header"
-  echo "    $(grep -Eic "\[syn\]" $connections_file) SYNs, $(grep -Eic "\[syn, ack\]" $connections_file) SYN-ACKs"
-  echo "    $(grep -Eic "\[rst\]" $connections_file) RSTs, $(grep -Eic "\[rst, ack\]" $connections_file) RST-ACKs"
-  echo "    $(grep -Eic "\[fin\]" $connections_file) FINs, $(grep -Eic "\[fin, ack\]" $connections_file) FIN-ACKs"
-  echo "    $(grep -Eic "\[ack\]" $connections_file) ACKs"
-  echo "    $(grep -Ec "Application Data" $connections_file) Application Data Messages"
-  echo "    $(grep -Ec "\"TLS" $connections_file) TLS Messages"
-  echo "    $(grep -Ec "\"DTLS" $connections_file) DTLS Messages"
-
-  if [[ -f $httpoutfile ]]; then
-    echo "    HTTP response code frequencies $(cat $httpoutfile)"
-  fi
-
-  if [[ -f $coapoutfile ]]; then
-    echo "    CoAP response code frequencies $(cat $coapoutfile)"
-  fi
-
-  echo ""
-}
-
-echo ""
-for D in $exp_dir/*; do
-  bd="$(basename $D)"
-  if [[ -d $D && $bd != "metadata" ]]; then
-    echo "Trial $bd"
-    httpoutfile="$D/http_response_codes.json"
-    coapoutfile="$D/coap_response_codes.json"
-
-    proxy_connections_file="$D/proxy_dump.pcap.connections.out"
-    if [[ ! -f $proxy_connections_file ]]; then
-      echo "Could not find proxy connections. Make sure you run process_connections.sh"
-      exit 1
-    fi
-    log_tcpdump_stats "Proxy" $proxy_connections_file $httpoutfile $coapoutfile
-  fi
-done

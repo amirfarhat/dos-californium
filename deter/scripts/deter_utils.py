@@ -195,6 +195,39 @@ database_experiment_field_map_pl_type = {
   "run_attacker"               : pl.datatypes.Boolean,
 }
 database_experiment_fields = list(database_experiment_field_map_pl_type.keys())
+
+# Mapping from wireshark connection output to 
+# polars types expected when reading.
+wireshark_connections_row_name_map_pl_type = {
+  "_ws.col.Time"       : pl.datatypes.Float64,
+  "_ws.col.Source"     : pl.datatypes.Utf8,
+  "_ws.col.Destination": pl.datatypes.Utf8,
+  "tcp.srcport"        : pl.datatypes.Int64,
+  "tcp.dstport"        : pl.datatypes.Int64,
+  "_ws.col.Length"     : pl.datatypes.Int64,
+  "_ws.col.Protocol"   : pl.datatypes.Utf8,
+  "tcp.flags.syn"      : pl.datatypes.Int64,
+  "tcp.flags.fin"      : pl.datatypes.Int64,
+  "tcp.flags.ack"      : pl.datatypes.Int64,
+  "_ws.col.Info"       : pl.datatypes.Utf8,
+}
+
+# Mapping from wireshark connection output to 
+# renamed, more human readable, column names.
+wireshark_connections_row_name_map_field_name = {
+  "_ws.col.Time"       : "timestamp",
+  "_ws.col.Source"     : "src_ip",
+  "_ws.col.Destination": "dst_ip",
+  "tcp.srcport"        : "src_port",
+  "tcp.dstport"        : "dst_port",
+  "_ws.col.Length"     : "message_size_bytes",
+  "_ws.col.Protocol"   : "protocol",
+  "tcp.flags.syn"      : "is_syn",
+  "tcp.flags.fin"      : "is_fin",
+  "tcp.flags.ack"      : "is_ack",
+  "_ws.col.Info"       : "info",
+}
+
 ### 
 ### Polars condition value replacement
 ### 

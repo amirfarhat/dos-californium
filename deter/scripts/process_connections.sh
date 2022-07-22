@@ -21,9 +21,8 @@ filter="tls || dtls || (tcp && !http)"
   -o dtls.psk:"$psk" \
   -o tls.keylog_file:"$keylog_file" \
   -r "$input_file" \
-  -2 \
   -n \
-  -R "$filter" \
+  -Y "$filter" \
   -t r \
   -T fields \
     -e _ws.col.Time \
@@ -35,6 +34,7 @@ filter="tls || dtls || (tcp && !http)"
     -e _ws.col.Protocol \
     -e tcp.flags.syn \
     -e tcp.flags.fin \
+    -e tcp.flags.ack \
     -e _ws.col.Info \
   -E header=y \
   -E separator=";" \
