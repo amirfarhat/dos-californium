@@ -1,5 +1,6 @@
 import sys
 import json
+import traceback
 import argparse
 
 from clickhouse_driver import Client
@@ -69,31 +70,35 @@ def read_data(expname_map_config):
     for t in range(1, num_trials + 1):
       trial_dir_path = f"{base_dir_path}/{t}"
       trial_data_path = f"{trial_dir_path}/{expname}.parquet"
-      df = (
-        # For each trial, read the trial data into memory.
-        pl
-        .scan_parquet(trial_data_path)
-        .with_columns([
-          # Add columns for database IDs, trial, and experiment.
-          pl.lit(-1).alias("cmci"),
-          pl.lit(-1).alias("hmci"),
-          pl.lit(-1).alias("message_id"),
-          pl.lit(t).alias("trial"),
-          pl.lit(expname).alias("exp_id"),
-          
-          # Replace string node names with database IDs.
-          pl_replace("node_type", cfg["node_name_map_dnid"]),
-          pl_replace("message_source", cfg["node_name_map_node_id"]),
-          pl_replace("message_destination", cfg["node_name_map_node_id"]), 
-          
-          # Change the values of HTTP request and response to 
-          # database type-friendly values.
-          zero_out_response_code_for_http_request,
-          zero_out_request_method_for_http_response,
-        ])
-        # Cast column types to expected DB types.
-        .with_columns(cast_to_database_types)
-      )
+      try:
+        df = (
+          # For each trial, read the trial data into memory.
+          pl
+          .scan_parquet(trial_data_path)
+          .with_columns([
+            # Add columns for database IDs, trial, and experiment.
+            pl.lit(-1).alias("cmci"),
+            pl.lit(-1).alias("hmci"),
+            pl.lit(-1).alias("message_id"),
+            pl.lit(t).alias("trial"),
+            pl.lit(expname).alias("exp_id"),
+            
+            # Replace string node names with database IDs.
+            pl_replace("node_type", cfg["node_name_map_dnid"]),
+            pl_replace("message_source", cfg["node_name_map_node_id"]),
+            pl_replace("message_destination", cfg["node_name_map_node_id"]), 
+            
+            # Change the values of HTTP request and response to 
+            # database type-friendly values.
+            zero_out_response_code_for_http_request,
+            zero_out_request_method_for_http_response,
+          ])
+          # Cast column types to expected DB types.
+          .with_columns(cast_to_database_types)
+        )
+      except OSError:
+        traceback.print_exc()
+        print(f"Could not find {trial_data_path}", file=sys.stderr)
       trial_dfs.append(df)
 
   # Collect all experiment trial data lazily into memory.
