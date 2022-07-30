@@ -124,12 +124,12 @@ parse_tcpdumps() {
           pids+=($!)
         fi
 
-        # if [[ ! -f $processed_connections_file ]]; then
-        echo "Processing tcp in $bd/`basename $dump_file`..."
-        # Compress key TCP connections events
-        (bash $SCRIPTS_DIR/process_connections.sh $dump_file $processed_connections_file $keylog_file) &
-        pids+=($!)
-        # fi
+        if [[ ! -f $processed_connections_file ]]; then
+          echo "Processing tcp in $bd/`basename $dump_file`..."
+          # Compress key TCP connections events
+          (bash $SCRIPTS_DIR/process_connections.sh $dump_file $processed_connections_file $keylog_file) &
+          pids+=($!)
+        fi
       done
     fi
   done
@@ -209,11 +209,11 @@ transform_connections() {
       # Process all input files into one file
       # If not already processed before
       outfile="$D/$unzipped_expname.connections.parquet"
-      # if [[ ! -f $outfile ]]; then
-      echo "Processing connections in $bd..."
-      (python3 $SCRIPTS_DIR/transform_experiment_connections.py -i $infiles -o $outfile -c $joined_config) &
-      pids+=($!)
-      # fi
+      if [[ ! -f $outfile ]]; then
+        echo "Processing connections in $bd..."
+        (python3 $SCRIPTS_DIR/transform_experiment_connections.py -i $infiles -o $outfile -c $joined_config) &
+        pids+=($!)
+      fi
     fi
   done
   # And wait for all processing to finish
